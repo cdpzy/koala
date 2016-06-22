@@ -37,9 +37,9 @@ type RTSPTCPConnection struct {
     socket net.Conn
     in       chan []byte
 	out      chan []byte
-	sendLock sync.RWMutex
-	closein  chan bool
-	closeout chan bool
+    sendLock sync.RWMutex
+    closein  chan bool
+    closeout chan bool
     RemoteAddr net.Addr
     LocalAddr  net.Addr
 }
