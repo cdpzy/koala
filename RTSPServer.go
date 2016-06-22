@@ -22,14 +22,8 @@
 * SOFTWARE.
 */
 
-package session
+package koala
 
-type ServerMediaSession struct {}
+type RTSPServer struct {
 
-func (serverMediaSession *ServerSubMediaSession) AddSubSession( session ISubMediaSession ) error {
-    return nil
-}
-
-func NewServerMediaSession() *ServerMediaSession {
-    return new(ServerMediaSession)
 }

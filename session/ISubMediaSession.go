@@ -24,12 +24,4 @@
 
 package session
 
-type ServerMediaSession struct {}
-
-func (serverMediaSession *ServerSubMediaSession) AddSubSession( session ISubMediaSession ) error {
-    return nil
-}
-
-func NewServerMediaSession() *ServerMediaSession {
-    return new(ServerMediaSession)
-}
+type ISubMediaSession interface {}
