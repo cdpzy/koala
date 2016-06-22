@@ -23,3 +23,7 @@
 */
 
 package koala
+
+type IRTSPResponse interface{}
+
+type RTSPResponse struct {}

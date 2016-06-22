@@ -35,6 +35,20 @@ import (
     "strings"
 )
 
+type IRTSPRequest interface {
+    GetMethod()  string
+
+    GetURL()    *url.URL
+
+    GetVersion() string
+
+    GetHeader()  http.Header
+
+    GetContentLength() int
+
+    GetBody()    io.ReadCloser
+}
+
 type RTSPRequest struct {
     Method      string
     URL         *url.URL

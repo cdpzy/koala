@@ -25,14 +25,37 @@
 package koala
 
 import(
-    "bytes"
 )
+
+// interface
+type IRTSPCommand interface {
+    ParseCommand( req IRTSPRequest ) error
+
+    handelOptions() error
+
+    handelDESCRIBE() error
+
+    handelSETUP() error
+
+    handelTEARDOWN() error
+
+    handelPLAY() error
+
+    handelPAUSE() error
+
+    handelGET_PARAMETER() error
+
+    handelSET_PARAMETER() error
+
+    // Allow RTSP Methed
+    GetAllowCommand() []string
+}
 
 type RTSPCommand struct {
 
 }
 
-func (rtspCommand *RTSPCommand) ParseCommand( buffer *bytes.Buffer  ) error {
+func (rtspCommand *RTSPCommand) ParseCommand( req IRTSPRequest  ) error {
 
     return nil
 }
@@ -67,4 +90,17 @@ func (rtspCommand *RTSPCommand) handelGET_PARAMETER() error {
 
 func (rtspCommand *RTSPCommand) handelSET_PARAMETER() error {
     return nil
+}
+
+func (rtspCommand RTSPCommand) GetAllowCommand() []string {
+    return []string{
+        "OPTIONS", 
+        "DESCRIBE", 
+        "SETUP", 
+        "TEARDOWN", 
+        "PLAY", 
+        "PAUSE", 
+        "GET_PARAMETER", 
+        "SET_PARAMETER",
+    }
 }
