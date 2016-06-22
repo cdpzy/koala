@@ -24,6 +24,54 @@
 
 package koala
 
+import(
+    "errors"
+)
+
+const (
+    SERVER_NET_PROTO_HTTP = "http"
+    SERVER_NET_PROTO_TCP  = "tcp"
+    SERVER_NET_PROTO_UDP  = "udp"
+)
+
 type RTSPServer struct {
 
+}
+
+func (RTSP *RTSPServer) supportTCP( addr string ) error {
+    
+    return nil
+}
+
+func (RTSP *RTSPServer) supportUDP( addr string ) error {
+    return nil
+}
+
+func (RTSP *RTSPServer) supportHTTP( addr string ) error {
+   return nil
+}
+
+func (RTSP *RTSPServer) Serve( proto, addr string ) error {
+    switch proto {
+    case SERVER_NET_PROTO_HTTP:
+         return RTSP.supportHTTP( addr )
+
+    case SERVER_NET_PROTO_TCP:
+         return RTSP.supportTCP( addr )
+
+    case SERVER_NET_PROTO_UDP:
+         return RTSP.supportUDP( addr )
+
+    default:
+        return errors.New("Not support:" + proto)
+    }
+    return nil
+}
+
+func (RTSP *RTSPServer) Stop() {
+
+}
+
+func NewRTSPServer() *RTSPServer {
+    return &RTSPServer{}
 }
