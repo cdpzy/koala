@@ -49,8 +49,8 @@ func (rtspTCPConnection *RTSPTCPConnection) Recv(){
         rtspTCPConnection.Close()
         if r := recover(); r != nil {
             if _, ok := r.(runtime.Error); ok {
-				log.Printf("connection Running fail:%v\n", r)
-			}
+               log.Printf("connection Running fail:%v\n", r)
+            }
         }
     }()
 
@@ -58,8 +58,8 @@ func (rtspTCPConnection *RTSPTCPConnection) Recv(){
     rtspTCPConnection.RemoteAddr = socket.RemoteAddr()
     rtspTCPConnection.LocalAddr  = socket.LocalAddr()
 
-	ip := net.ParseIP(strings.Split( socket.RemoteAddr().String(), ":")[0])
-	log.Printf("new connected from:%v\n", ip)
+    ip := net.ParseIP(strings.Split( socket.RemoteAddr().String(), ":")[0])
+    log.Printf("new connected from:%v\n", ip)
 
     go rtspTCPConnection.request()
     go rtspTCPConnection.response()
@@ -86,8 +86,8 @@ func (rtspTCPConnection *RTSPTCPConnection) Recv(){
 func (rtspTCPConnection *RTSPTCPConnection) request(){
     defer func(){
         close(rtspTCPConnection.in)
-		close(rtspTCPConnection.closein)
-		log.Print("Connection request stoped")
+        close(rtspTCPConnection.closein)
+        log.Print("Connection request stoped")
     }()
 
     for {
@@ -107,8 +107,8 @@ func (rtspTCPConnection *RTSPTCPConnection) request(){
 func (rtspTCPConnection *RTSPTCPConnection) response(){
     defer func(){
         close(rtspTCPConnection.out)
-		close(rtspTCPConnection.closeout)
-		log.Print("Connection response stoped")
+        close(rtspTCPConnection.closeout)
+        log.Print("Connection response stoped")
     }()
 
     for {
@@ -146,6 +146,6 @@ func NewRTSPTCPConnection( socket net.Conn ) *RTSPTCPConnection {
         in      : make(chan []byte, 0),
         out     : make(chan []byte, 0),
         closein : make(chan bool),
-		closeout: make(chan bool),
+        closeout: make(chan bool),
     }
 }
