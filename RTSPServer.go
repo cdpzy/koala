@@ -25,6 +25,7 @@
 package koala
 
 import(
+    "net"
     "errors"
 )
 
@@ -35,11 +36,33 @@ const (
 )
 
 type RTSPServer struct {
-
+    tcpListen    net.Listener
 }
 
 func (RTSP *RTSPServer) supportTCP( addr string ) error {
-    
+    tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
+    if err != nil {
+        return err
+    }
+
+    lis, err := net.ListenTCP("tcp", tcpAddr)
+    if err != nil {
+        return err
+    }
+
+    RTSP.tcpListen = lis
+    defer RTSP.tcpListen.Close()
+
+    for{
+        conn, err := lis.Accept()
+        if err != nil {
+            return err
+        }
+
+        go func(socket net.Conn) {
+             NewRTSPTCPConnection( socket ).Recv()
+        }(conn)
+    }
     return nil
 }
 
