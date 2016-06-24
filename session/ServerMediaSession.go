@@ -24,12 +24,103 @@
 
 package session
 
-type ServerMediaSession struct {}
+import(
+    "fmt"
+    "github.com/doublemo/koala/msic"
+)
 
-func (serverMediaSession *ServerSubMediaSession) AddSubSession( session ISubMediaSession ) error {
+type ServerMediaSession struct {
+    ssm         bool // 是否为指定播放源
+    addr        string 
+    description string
+    info        string
+    miscSDPLines string
+    referenceCounter  int // 引用计数
+    subsessionCounter int // 子session 计数
+    creationTime  msic.Timeval   
+    streamName    string
+    subSessions   []*ServerSubMediaSession
+}
+
+func (serverMediaSession *ServerMediaSession) GenerateSDPDescription() string {
+    var (
+        sourceFilterLine string
+        rangeLine        string
+    )
+
+    if serverMediaSession.ssm {
+        sourceFilterLine = fmt.Sprintf("a=source-filter: incl IN IP4 * %s\r\n"+
+			"a=rtcp-unicast: reflection\r\n", serverMediaSession.addr)
+    } else {
+        sourceFilterLine = ""
+    }
+
+    duration := serverMediaSession.Duration()
+    if duration == 0.0 {
+        rangeLine = "a=range:npt=0-\r\n"
+    } else {
+        rangeLine = fmt.Sprintf("a=range:npt=0-%.3f\r\n", duration)
+    }
+
+    sdpPrefixFmt := "v=0\r\n" +
+		"o=- %d%06d %d IN IP4 %s\r\n" +
+		"s=%s\r\n" +
+		"i=%s\r\n" +
+		"t=0 0\r\n" +
+		"a=tool:%s%s\r\n" +
+		"a=type:broadcast\r\n" +
+		"a=control:*\r\n" +
+		"%s" +
+		"%s" +
+		"a=x-qt-text-nam:%s\r\n" +
+		"a=x-qt-text-inf:%s\r\n" +
+		"%s"
+
+	sdp := fmt.Sprintf(sdpPrefixFmt,
+		serverMediaSession.creationTime.Tv_sec,
+		serverMediaSession.creationTime.Tv_usec,
+		1,
+		serverMediaSession.addr,
+		serverMediaSession.description,
+		serverMediaSession.info,
+		"Koala Media Server V", "1.0",
+		sourceFilterLine,
+		rangeLine,
+		serverMediaSession.description,
+		serverMediaSession.info,
+		serverMediaSession.miscSDPLines)
+
+    for i := 0; i < serverMediaSession.subsessionCounter; i++ {
+		sdpLines := serverMediaSession.subSessions[i].SDPLines()
+		sdp += sdpLines
+	}
+
+    return sdp
+}
+
+func (serverMediaSession *ServerMediaSession) AddSubSession( session  *ServerSubMediaSession) error {
+    serverMediaSession.subSessions = append(serverMediaSession.subSessions, session)
+    serverMediaSession.subsessionCounter++
+    session.IncrTrackNumber()
     return nil
 }
 
-func NewServerMediaSession() *ServerMediaSession {
-    return new(ServerMediaSession)
+func (serverMediaSession *ServerMediaSession) Duration() float32 {
+    return 0.0
+}
+
+func (serverMediaSession *ServerMediaSession) GetStreamName() string {
+    return serverMediaSession.streamName
+}
+
+func NewServerMediaSession( description, streamName string ) *ServerMediaSession {
+    serverMediaSession := new(ServerMediaSession)
+    serverMediaSession.streamName   = streamName
+    serverMediaSession.description  = description + ", streamed by the Koala Media Server"
+    serverMediaSession.info         = streamName
+    serverMediaSession.subSessions  = make([]*ServerSubMediaSession, 0)
+    serverMediaSession.addr,_       = msic.OurIPAddress()
+
+    msic.GetTimeOfDay(&serverMediaSession.creationTime)
+    return serverMediaSession
 }

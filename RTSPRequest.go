@@ -47,6 +47,10 @@ type IRTSPRequest interface {
     GetContentLength() int
 
     GetBody()    io.ReadCloser
+
+    String()     string
+
+    FromBytes( r io.Reader )  error
 }
 
 type RTSPRequest struct {
@@ -58,6 +62,30 @@ type RTSPRequest struct {
     Header        http.Header
     ContentLength int
     Body          io.ReadCloser
+}
+
+func (request RTSPRequest) GetMethod() string {
+    return request.Method
+}
+
+func (request RTSPRequest) GetURL() *url.URL {
+    return request.URL
+}
+
+func (request RTSPRequest) GetVersion() string {
+    return fmt.Sprintf("%s/%d.%d", request.Proto, request.ProtoMajor, request.ProtoMinor)
+}
+
+func (request RTSPRequest) GetHeader() http.Header {
+    return request.Header
+}
+
+func (request RTSPRequest) GetContentLength() int {
+    return request.ContentLength
+}
+
+func (request RTSPRequest) GetBody() io.ReadCloser {
+    return request.Body
 }
 
 func (request RTSPRequest) String() string {
@@ -126,7 +154,9 @@ func (request *RTSPRequest) FromBytes( r io.Reader ) error {
     return nil
 }
 
-
+func NewRTSPRequest() *RTSPRequest {
+    return new(RTSPRequest)
+}
 
 type RequestCloser struct {
     *bufio.Reader

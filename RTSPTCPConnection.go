@@ -31,6 +31,7 @@ import (
     "runtime"
     "strings"
     "time"
+    "bytes"
 )
 
 type RTSPTCPConnection struct {
@@ -42,6 +43,7 @@ type RTSPTCPConnection struct {
     closeout chan bool
     RemoteAddr net.Addr
     LocalAddr  net.Addr
+    rtsp    *RTSPServer
 }
 
 func (rtspTCPConnection *RTSPTCPConnection) Recv(){
@@ -65,7 +67,7 @@ func (rtspTCPConnection *RTSPTCPConnection) Recv(){
     go rtspTCPConnection.response()
 
     for {
-        socket.SetReadDeadline(time.Now().Add(120 * time.Second))
+       // socket.SetReadDeadline(time.Now().Add(120 * time.Second))
         packet := make([]byte, 4096)
         n, err := socket.Read(packet)
         if err != nil {
@@ -97,6 +99,17 @@ func (rtspTCPConnection *RTSPTCPConnection) request(){
                  log.Printf("error receiving packet, packet:%v", packet)
                  break
              }
+
+             req    := rtspTCPConnection.rtsp.GetRequest()
+             handle := rtspTCPConnection.rtsp.GetHandleCommand()
+             err := req.FromBytes( bytes.NewBuffer(packet) )
+             if err != nil {
+                 log.Printf("error receiving request:%v", err)
+                 continue
+             }
+
+             handle.ParseCommand( rtspTCPConnection )
+
 
         case <-rtspTCPConnection.closein:
              return
@@ -140,12 +153,13 @@ func (rtspTCPConnection *RTSPTCPConnection) Close() {
     rtspTCPConnection.socket.Close()
 }
 
-func NewRTSPTCPConnection( socket net.Conn ) *RTSPTCPConnection {
+func NewRTSPTCPConnection( socket net.Conn, rtsp *RTSPServer) *RTSPTCPConnection {
     return &RTSPTCPConnection{
         socket  : socket,
         in      : make(chan []byte, 0),
         out     : make(chan []byte, 0),
         closein : make(chan bool),
         closeout: make(chan bool),
+        rtsp    : rtsp,
     }
 }

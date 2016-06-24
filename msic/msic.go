@@ -22,27 +22,33 @@
 * SOFTWARE.
 */
 
-package koala
+package msic
 
-import(
-    "fmt"
+import (
     "time"
+    "net"
+    "fmt"
+    "strings"
 )
 
-type IRTSPResponse interface{
-    String()  string
+type Timeval struct {
+    Tv_sec  int64
+	Tv_usec int64
 }
 
-type RTSPResponse struct {}
-
-func (rtspResponse *RTSPResponse) String() string {
-    return ""
+func GetTimeOfDay( val *Timeval ) {
+    tv_nsec := time.Now().UnixNano()
+	val.Tv_sec = tv_nsec / 1000000000
+	val.Tv_usec = tv_nsec % (val.Tv_sec * 1000000000)
 }
 
-func NewRTSPResponse() *RTSPResponse {
-    return new(RTSPResponse)
-}
+func OurIPAddress() (string, error) {
+	conn, err := net.Dial("udp", "www.baidu.com:80")
+	if err != nil {
+		fmt.Println("[ourIPAddress]", err.Error())
+		return "", err
+	}
+	defer conn.Close()
 
-func DateHeader() string {
-	return fmt.Sprintf("Date: %s\r\n", time.Now())
+	return strings.Split(conn.LocalAddr().String(), ":")[0], nil
 }

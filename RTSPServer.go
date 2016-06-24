@@ -25,8 +25,11 @@
 package koala
 
 import(
+    "os"
     "net"
     "errors"
+    "github.com/doublemo/koala/session"
+    //"log"
 )
 
 const (
@@ -37,6 +40,69 @@ const (
 
 type RTSPServer struct {
     tcpListen    net.Listener
+    udpListen    *net.UDPConn
+    request      IRTSPRequest
+    response     IRTSPResponse
+    handle       IRTSPCommand
+    serverMediaSessions map[string]*session.ServerMediaSession
+}
+
+func (RTSP *RTSPServer) SetRequest( req IRTSPRequest ) {
+    RTSP.request = req
+}
+
+func (RTSP *RTSPServer) SetResponse( resp IRTSPResponse ) {
+    RTSP.response = resp
+}
+
+func (RTSP *RTSPServer) SetHandleCommand( api IRTSPCommand ) {
+    RTSP.handle = api
+}
+
+func (RTSP *RTSPServer) GetRequest() IRTSPRequest {
+    if RTSP.request == nil {
+        RTSP.request = NewRTSPRequest()
+    }
+
+    return RTSP.request
+}
+
+func (RTSP *RTSPServer) GetResponse() IRTSPResponse {
+    if RTSP.response == nil {
+        RTSP.response = NewRTSPResponse()
+    }
+
+    return RTSP.response
+}
+
+func (RTSP *RTSPServer) GetHandleCommand() IRTSPCommand {
+    if RTSP.handle == nil {
+        RTSP.handle = NewRTSPCommand( RTSP )
+    }
+
+    return RTSP.handle
+}
+
+func (RTSP *RTSPServer) LookupServerMediaSession( streamName string ) *session.ServerMediaSession{
+    sms, smsExists := RTSP.serverMediaSessions[streamName]
+
+    fid, err       := os.Open( streamName )
+    if err != nil {
+        if smsExists {
+            delete(RTSP.serverMediaSessions, streamName)
+        }
+
+        return nil
+    }
+
+    fid.Close()
+    if !smsExists {
+        sms = session.NewServerMediaSession( "h264", streamName )
+        sms.AddSubSession(session.NewServerSubMediaSession(streamName))
+        RTSP.serverMediaSessions[streamName] = sms
+    }
+
+    return sms
 }
 
 func (RTSP *RTSPServer) supportTCP( addr string ) error {
@@ -60,13 +126,25 @@ func (RTSP *RTSPServer) supportTCP( addr string ) error {
         }
 
         go func(socket net.Conn) {
-             NewRTSPTCPConnection( socket ).Recv()
+             NewRTSPTCPConnection( socket, RTSP ).Recv()
         }(conn)
     }
     return nil
 }
 
 func (RTSP *RTSPServer) supportUDP( addr string ) error {
+    udpAddr, err := net.ResolveUDPAddr("udp", addr)
+    if err != nil {
+        return err
+    }
+
+    lis, err := net.ListenUDP("udp", udpAddr)
+    RTSP.udpListen = lis
+    defer RTSP.udpListen.Close()
+    for{
+         //buf    := make([]byte, 1024)
+         //n, remoteAddr, err := conn.ReadFromUDP(buf)
+    }
     return nil
 }
 
@@ -96,5 +174,5 @@ func (RTSP *RTSPServer) Stop() {
 }
 
 func NewRTSPServer() *RTSPServer {
-    return &RTSPServer{}
+    return &RTSPServer{serverMediaSessions:make(map[string]*session.ServerMediaSession)}
 }

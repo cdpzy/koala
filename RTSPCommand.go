@@ -25,15 +25,19 @@
 package koala
 
 import(
+    "log"
+    "fmt"
+    "errors"
+    //"strings"
 )
 
 // interface
 type IRTSPCommand interface {
-    ParseCommand( req IRTSPRequest ) error
+    ParseCommand( *RTSPTCPConnection ) error
 
-    handelOptions() error
+    handelOptions( *RTSPTCPConnection ) error
 
-    handelDESCRIBE() error
+    handelDESCRIBE( *RTSPTCPConnection  ) error
 
     handelSETUP() error
 
@@ -52,19 +56,65 @@ type IRTSPCommand interface {
 }
 
 type RTSPCommand struct {
-
+    rtsp *RTSPServer
 }
 
-func (rtspCommand *RTSPCommand) ParseCommand( req IRTSPRequest  ) error {
+func (rtspCommand *RTSPCommand) ParseCommand( client *RTSPTCPConnection ) error {
+    req := rtspCommand.rtsp.GetRequest()
+    log.Println("method:", req.GetMethod())
+    switch req.GetMethod() {
+    case "OPTIONS":
+        rtspCommand.handelOptions( client )
 
+    case "DESCRIBE":
+        rtspCommand.handelDESCRIBE( client )
+    }
     return nil
 }
 
-func (rtspCommand *RTSPCommand) handelOptions() error {
+func (rtspCommand *RTSPCommand) handelOptions( client *RTSPTCPConnection ) error {
+    header  := rtspCommand.rtsp.GetRequest().GetHeader()
+    cseq    := header.Get("CSeq")
+    buf     := fmt.Sprintf("RTSP/1.0 200 OK\r\n"+
+		"CSeq: %s\r\n"+
+		"%sPublic: %s\r\n\r\n",
+		cseq, DateHeader(), rtspCommand.GetAllowCommand())
+
+    client.Send([]byte(buf))
     return nil
 }
 
-func (rtspCommand *RTSPCommand) handelDESCRIBE() error {
+func (rtspCommand *RTSPCommand) handelDESCRIBE( client *RTSPTCPConnection ) error {
+    header  := rtspCommand.rtsp.GetRequest().GetHeader()
+    url     := rtspCommand.rtsp.GetRequest().GetURL()
+    cseq    := header.Get("CSeq")
+
+    session := rtspCommand.rtsp.LookupServerMediaSession("test.264")
+    log.Println("session:", session)
+    if session == nil {
+        rtspCommand.handleCommandNotFound( client )
+        return nil
+    }
+
+    sdpDescription := session.GenerateSDPDescription()
+    sdpDescriptionSize := len(sdpDescription)
+    log.Println("sdpDescriptionSize:", sdpDescriptionSize)
+    if sdpDescriptionSize < 1 {
+        rtspCommand.handleCommandNotFound( client )
+        return errors.New("404 File Not Found, Or In Incorrect Format")
+    }
+
+    buf :=  fmt.Sprintf("RTSP/1.0 200 OK\r\n"+
+		"CSeq: %s\r\n"+
+		"%s"+
+		"Content-Base: %s/\r\n"+
+		"Content-Type: application/sdp\r\n"+
+		"Content-Length: %d\r\n\r\n"+
+		"%s",
+		cseq, DateHeader(), url.String(), sdpDescriptionSize, sdpDescription)
+    
+    log.Println("Buffer:", buf)
+    client.Send([]byte(buf))
     return nil
 }
 
@@ -103,4 +153,13 @@ func (rtspCommand RTSPCommand) GetAllowCommand() []string {
         "GET_PARAMETER", 
         "SET_PARAMETER",
     }
+}
+
+func (rtspCommand RTSPCommand) handleCommandNotFound( client *RTSPTCPConnection ) {
+    buf := fmt.Sprintf("HTTP/1.0 404 Not Found\r\n%s\r\n\r\n", DateHeader())
+    client.Send([]byte(buf))
+}
+
+func NewRTSPCommand( rtsp *RTSPServer ) *RTSPCommand {
+    return &RTSPCommand{rtsp : rtsp}
 }

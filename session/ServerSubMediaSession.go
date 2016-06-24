@@ -24,8 +24,53 @@
 
 package session
 
-type ServerSubMediaSession struct {}
+import (
+    "fmt"
+    "os"
+)
 
-func NewServerSubMediaSession() *ServerSubMediaSession {
-    return new(ServerSubMediaSession)
+type ServerSubMediaSession struct {
+    trackNumber int
+    trackId    string
+    streamName string
+    initialPortNum int
+    cname      string
+    sdpLines   string
+}
+
+func (serverSubMediaSession *ServerSubMediaSession) SDPLines() string {
+    return ""
+}
+
+func (serverSubMediaSession *ServerSubMediaSession) GetTrackId() string {
+    if serverSubMediaSession.trackId == "" {
+        serverSubMediaSession.trackId = fmt.Sprintf("track%d", serverSubMediaSession.trackId)
+    }
+
+    return serverSubMediaSession.trackId
+}
+
+func (serverSubMediaSession *ServerSubMediaSession) IncrTrackNumber() {
+    serverSubMediaSession.trackNumber++
+}
+
+func (serverSubMediaSession *ServerSubMediaSession) GetTrackNumber() int {
+    return serverSubMediaSession.trackNumber
+}
+
+func (serverSubMediaSession *ServerSubMediaSession) rangeSDPLine() string {
+	return "a=range:npt=0-\r\n"
+}
+
+func (serverSubMediaSession *ServerSubMediaSession) createNewStreamSource(){
+    
+}
+
+func NewServerSubMediaSession( streamName string ) *ServerSubMediaSession {
+    serverSubMediaSession := new(ServerSubMediaSession)
+    serverSubMediaSession.streamName     = streamName
+    serverSubMediaSession.initialPortNum = 6970
+    serverSubMediaSession.cname, _       = os.Hostname()
+    serverSubMediaSession.sdpLines       = ""
+    return serverSubMediaSession
 }
