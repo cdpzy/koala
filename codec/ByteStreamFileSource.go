@@ -93,6 +93,7 @@ func (byteStreamFileSource *ByteStreamFileSource) readFromFile() error {
 }
 
 func (byteStreamFileSource *ByteStreamFileSource) afterGetting() {
+    byteStreamFileSource.isCurrentlyAwaitingData = false
     
 }
 
