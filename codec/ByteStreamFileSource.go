@@ -49,7 +49,7 @@ type ByteStreamFileSource struct {
 }
 
 
-func (byteStreamFileSource *ByteStreamFileSource) nextFrame() {
+func (byteStreamFileSource *ByteStreamFileSource) NextFrame() {
     if byteStreamFileSource.limitNumBytesToStream && byteStreamFileSource.numBytesToStream == 0 {
         byteStreamFileSource.handleClosure()
         return
@@ -96,6 +96,12 @@ func (byteStreamFileSource *ByteStreamFileSource) afterGetting() {
     byteStreamFileSource.isCurrentlyAwaitingData = false
     
 }
+
+func (byteStreamFileSource *ByteStreamFileSource) FileSize() int64 {
+    return byteStreamFileSource.fileSize
+}
+
+
 
 func NewByteStreamFileSource( fileName string ) *ByteStreamFileSource {
     fid, err := os.Open(fileName)

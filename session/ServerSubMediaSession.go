@@ -27,6 +27,8 @@ package session
 import (
     "fmt"
     "os"
+    "github.com/doublemo/koala/codec"
+    "github.com/doublemo/koala/msic"
 )
 
 type ServerSubMediaSession struct {
@@ -36,11 +38,35 @@ type ServerSubMediaSession struct {
     initialPortNum int
     cname      string
     sdpLines   string
+    fileSize   int64
 }
 
 func (serverSubMediaSession *ServerSubMediaSession) SDPLines() string {
-    return ""
+    if serverSubMediaSession.sdpLines != "" {
+        return serverSubMediaSession.sdpLines
+    }
+
+    inputSource    := serverSubMediaSession.createNewStreamSource()
+    rtpPayloadType := 96 + serverSubMediaSession.GetTrackNumber() - 1
+    var dummyAddr string
+	dummyGroupSock := msic.NewGroupSock(dummyAddr, 0)
+	dummyRTPSink := serverSubMediaSession.createNewRTPSink(dummyGroupSock, uint(rtpPayloadType))
+    fmt.Println("inputSource:", inputSource, rtpPayloadType, dummyRTPSink)
+    serverSubMediaSession.setSDPLinesFromRTPSink(dummyRTPSink, inputSource, 500)
+    return serverSubMediaSession.sdpLines
 }
+
+func (serverSubMediaSession *ServerSubMediaSession) setSDPLinesFromRTPSink( rtpSink *codec.H264VideoRTPSink, inputSource *codec.H264VideoStreamParser, estBitrate int){
+    mediaType      := rtpSink.SdpMediaType()
+    rtpmapLine     := rtpSink.RtpmapLine()
+    rtpPayloadType := rtpSink.RtpPayloadType()
+
+    rangeLine      := serverSubMediaSession.rangeSDPLine()
+    auxSDPLine     := serverSubMediaSession.getAuxSDPLine(rtpSink)
+}
+
+
+
 
 func (serverSubMediaSession *ServerSubMediaSession) GetTrackId() string {
     if serverSubMediaSession.trackId == "" {
@@ -62,8 +88,24 @@ func (serverSubMediaSession *ServerSubMediaSession) rangeSDPLine() string {
 	return "a=range:npt=0-\r\n"
 }
 
-func (serverSubMediaSession *ServerSubMediaSession) createNewStreamSource(){
-    
+func (serverSubMediaSession *ServerSubMediaSession) getAuxSDPLine(rtpSink *codec.H264VideoRTPSink) string {
+	return rtpSink.AuxSDPLine()
+}
+
+
+func (serverSubMediaSession *ServerSubMediaSession) createNewStreamSource() *codec.H264VideoStreamParser{
+    fileSource := codec.NewByteStreamFileSource(serverSubMediaSession.streamName)
+    if fileSource == nil {
+        return nil
+    }
+
+    serverSubMediaSession.fileSize = fileSource.FileSize()
+
+    return codec.NewH264VideoStreamParser(fileSource)
+}
+
+func (serverSubMediaSession *ServerSubMediaSession) createNewRTPSink( dummyGroupSock *msic.GroupSock, rtpPayloadType uint ) *codec.H264VideoRTPSink {
+    return codec.NewH264VideoRTPSink(dummyGroupSock, rtpPayloadType)
 }
 
 func NewServerSubMediaSession( streamName string ) *ServerSubMediaSession {

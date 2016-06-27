@@ -90,7 +90,7 @@ func (rtspCommand *RTSPCommand) handelDESCRIBE( client *RTSPTCPConnection ) erro
     cseq    := header.Get("CSeq")
 
     session := rtspCommand.rtsp.LookupServerMediaSession("test.264")
-    log.Println("session:", session)
+    //log.Println("session:", session)
     if session == nil {
         rtspCommand.handleCommandNotFound( client )
         return nil
