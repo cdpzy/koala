@@ -1,5 +1,10 @@
 package codec
 
+import(
+	"fmt"
+	"github.com/doublemo/koala/msic"
+)
+
 type H264FUAFragmenter struct {
 	saveNumTruncatedBytes        uint
 	maxOutputPacketSize          uint
@@ -8,15 +13,29 @@ type H264FUAFragmenter struct {
 	curDataOffset                uint
 	inputBuffer                  []byte
 	lastFragmentCompletedNALUnit bool
+	inputSource                  *H264VideoStreamParser
+	source                       *H264VideoStreamParser
+
+	afterGettingFunc        interface{}
+	onCloseFunc             interface{}
+	buffTo                  []byte
+	maxSize                 uint
+	frameSize               uint
+	numTruncatedBytes       uint
+	durationInMicroseconds  uint
+	isCurrentlyAwaitingData bool
+	presentationTime        msic.Timeval
 }
 
-func NewH264FUAFragmenter(inputSource IFramedSource, inputBufferMax uint) *H264FUAFragmenter {
+func NewH264FUAFragmenter(inputSource *H264VideoStreamParser, inputBufferMax uint) *H264FUAFragmenter {
 	fragment := new(H264FUAFragmenter)
 	fragment.numValidDataBytes = 1
 	fragment.inputBufferSize = inputBufferMax + 1
 	fragment.inputBuffer = make([]byte, fragment.inputBufferSize)
-	fragment.InitFramedFilter(inputSource)
-	fragment.InitFramedSource(fragment)
+	fragment.inputSource = inputSource
+	fragment.source      = inputSource
+	//fragment.InitFramedFilter(inputSource)
+	//fragment.InitFramedSource(fragment)
 	return fragment
 }
 
@@ -74,6 +93,17 @@ func (this *H264FUAFragmenter) doGetNextFrame() {
 	// Complete delivery to the client:
 	this.inputSource.afterGetting()
 }
+
+func (this *H264FUAFragmenter) reAssignInputSource(source *H264VideoStreamParser) {
+	this.inputSource = source
+}
+
+
+func (this *H264FUAFragmenter) InputSource()*H264VideoStreamParser{
+	return this.inputSource
+}
+
+
 
 func (this *H264FUAFragmenter) afterGettingFrame(frameSize uint) {
 	this.numValidDataBytes += frameSize

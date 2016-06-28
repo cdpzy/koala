@@ -39,6 +39,7 @@ type ServerSubMediaSession struct {
     cname      string
     sdpLines   string
     fileSize   int64
+    portNumForSDP int
 }
 
 func (serverSubMediaSession *ServerSubMediaSession) SDPLines() string {
@@ -63,6 +64,26 @@ func (serverSubMediaSession *ServerSubMediaSession) setSDPLinesFromRTPSink( rtpS
 
     rangeLine      := serverSubMediaSession.rangeSDPLine()
     auxSDPLine     := serverSubMediaSession.getAuxSDPLine(rtpSink)
+
+    ipAddr := "0.0.0.0"
+    sdpFmt := "m=%s %d RTP/AVP %d\r\n" +
+		"c=IN IP4 %s\r\n" +
+		"b=AS:%d\r\n" +
+		"%s" +
+		"%s" +
+		"%s" +
+		"a=control:%s\r\n"
+
+	serverSubMediaSession.sdpLines = fmt.Sprintf(sdpFmt,
+		mediaType,
+		serverSubMediaSession.portNumForSDP,
+		rtpPayloadType,
+		ipAddr,
+		estBitrate,
+		rtpmapLine,
+		rangeLine,
+		auxSDPLine,
+		serverSubMediaSession.GetTrackId())
 }
 
 
@@ -70,7 +91,7 @@ func (serverSubMediaSession *ServerSubMediaSession) setSDPLinesFromRTPSink( rtpS
 
 func (serverSubMediaSession *ServerSubMediaSession) GetTrackId() string {
     if serverSubMediaSession.trackId == "" {
-        serverSubMediaSession.trackId = fmt.Sprintf("track%d", serverSubMediaSession.trackId)
+        serverSubMediaSession.trackId = fmt.Sprintf("track%d", serverSubMediaSession.trackNumber)
     }
 
     return serverSubMediaSession.trackId

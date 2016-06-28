@@ -28,6 +28,7 @@ import(
     "log"
     "fmt"
     "errors"
+    //"github.com/doublemo/koala/msic"
     //"strings"
 )
 
@@ -39,11 +40,11 @@ type IRTSPCommand interface {
 
     handelDESCRIBE( *RTSPTCPConnection  ) error
 
-    handelSETUP() error
+    handelSETUP(*RTSPTCPConnection) error
 
     handelTEARDOWN() error
 
-    handelPLAY() error
+    handelPLAY(*RTSPTCPConnection) error
 
     handelPAUSE() error
 
@@ -68,7 +69,14 @@ func (rtspCommand *RTSPCommand) ParseCommand( client *RTSPTCPConnection ) error 
 
     case "DESCRIBE":
         rtspCommand.handelDESCRIBE( client )
+
+    case "SETUP":
+        rtspCommand.handelSETUP( client )
+
+    case "PLAY":
+        rtspCommand.handelPLAY( client )
     }
+    
     return nil
 }
 
@@ -118,7 +126,25 @@ func (rtspCommand *RTSPCommand) handelDESCRIBE( client *RTSPTCPConnection ) erro
     return nil
 }
 
-func (rtspCommand *RTSPCommand) handelSETUP() error {
+func (rtspCommand *RTSPCommand) handelSETUP(client *RTSPTCPConnection) error {
+    header  := rtspCommand.rtsp.GetRequest().GetHeader()
+    cseq    := header.Get("CSeq")
+
+    buf :=  fmt.Sprintf("RTSP/1.0 200 OK\r\n"+
+				"CSeq: %s\r\n"+
+				"%s"+
+				"Transport: RTP/AVP;multicast;destination=%s;source=%s;port=%d-%d;ttl=%d\r\n"+
+				"Session: %08X\r\n\r\n", cseq,
+				DateHeader(),
+				client.RemoteAddr,
+				client.LocalAddr,
+				6970,
+				6971,
+				220,
+				"sdd855522")
+
+    log.Println("Buffer:", buf)
+    client.Send([]byte(buf)) 
     return nil
 }
 
@@ -126,7 +152,13 @@ func (rtspCommand *RTSPCommand) handelTEARDOWN() error {
     return nil
 }
 
-func (rtspCommand *RTSPCommand) handelPLAY() error {
+func (rtspCommand *RTSPCommand) handelPLAY(client *RTSPTCPConnection) error {
+    // PLAY rtsp://127.0.0.1:554/test.264/ RTSP/1.0
+    // Cseq: 5
+    // User-Agent: LibVLC/2.2.4 (LIVE555 Streaming Media v2016.02.22)
+    // Session: 736464383535353232
+    // Range: npt=0.000-
+    log.Println(rtspCommand.rtsp.GetRequest().String())
     return nil
 }
 
