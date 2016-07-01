@@ -8,16 +8,19 @@ import (
     "log"
     "strings"
     "net/http"
-    "golang.org/x/net/websocket"
 )
 
 type HTTPRequest struct {
+	BaseRequest
     *http.Request
     ContentType     string
     Format          string 
     AcceptLanguages AcceptLanguages
     Locale          string
-    Websocket *websocket.Conn
+}
+
+func (httpRequest *HTTPRequest) GetMethod() string {
+    return httpRequest.Method
 }
 
 func NewHTTPRequest( r *http.Request ) *HTTPRequest {

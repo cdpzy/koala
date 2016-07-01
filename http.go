@@ -8,28 +8,16 @@ import (
     "log"
 )
 
-type HTTPHandlerFunc func( s *HTTPServer )
-
 type HTTPServer struct {
-    request   *HTTPRequest
-    response  *HTTPResponse
     server    *http.Server
     SSL       bool
     SSLCert   string
     SSLKey    string
     Maxrequestsize int64
-    handlerFunc HTTPHandlerFunc
+    handlerFunc HandlerFunc
 }
 
-func (httpServer *HTTPServer) GetRequest() *HTTPRequest {
-    return httpServer.request
-}
-
-func (httpServer *HTTPServer) GetResponse() *HTTPResponse {
-    return httpServer.response
-}
-
-func (httpServer *HTTPServer) HandlerFunc( handlerFunc HTTPHandlerFunc ) {
+func (httpServer *HTTPServer) HandlerFunc( handlerFunc HandlerFunc ) {
     httpServer.handlerFunc = handlerFunc
 }
 
@@ -52,12 +40,11 @@ func (httpServer *HTTPServer) handle(w http.ResponseWriter, r *http.Request) {
 
 
 func (httpServer *HTTPServer) handleInternal(w http.ResponseWriter, r *http.Request, ws *websocket.Conn) {
-    start  := time.Now()
-    httpServer.request  = NewHTTPRequest(r)
-    httpServer.response = NewHTTPResponse(w)
-
-    httpServer.request.Websocket = ws
-    httpServer.handlerFunc( httpServer )
+    start    := time.Now()
+    request  := NewHTTPRequest(r)
+    response := NewHTTPResponse(w)
+    request.Websocket = ws
+    httpServer.handlerFunc( request, response )
     
     //start.Format("2006/01/02 15:04:05.000")
     log.Printf("%v %v %10v %v %v", 
