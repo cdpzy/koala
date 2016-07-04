@@ -1,7 +1,9 @@
 package koala
 
 import (
+    "io"
     "net"
+    "net/http"
     "golang.org/x/net/websocket"
 )
 
@@ -9,10 +11,12 @@ type Request interface {
     GetSocket() net.Conn
     GetWebsocket() *websocket.Conn
     Recv()
-    GetInputChan() chan []byte
+    GetInputChan() chan error
     GetRemoteAddr() net.Addr
     GetLocalAddr() net.Addr
     GetMethod() string
+    GetHeader() http.Header
+    GetBody()   io.ReadCloser
     String() string
 }
 
@@ -22,7 +26,7 @@ type BaseRequest struct {
     Websocket *websocket.Conn
     RemoteAddr net.Addr
     LocalAddr  net.Addr
-    in        chan []byte
+    in        chan error
 }
 
 func (baseRequest *BaseRequest) GetSocket() net.Conn {
@@ -36,7 +40,7 @@ func (baseRequest *BaseRequest) GetWebsocket() *websocket.Conn {
 func (baseRequest *BaseRequest) Recv(){}
 
 
-func (baseRequest *BaseRequest) GetInputChan() chan []byte {
+func (baseRequest *BaseRequest) GetInputChan() chan error {
     return baseRequest.in
 }
 

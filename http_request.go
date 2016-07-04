@@ -1,6 +1,8 @@
 package koala
 
 import (
+	"io"
+	"io/ioutil"
     "strconv"
     "sort"
     "fmt"
@@ -21,6 +23,29 @@ type HTTPRequest struct {
 
 func (httpRequest *HTTPRequest) GetMethod() string {
     return httpRequest.Method
+}
+
+func (httpRequest *HTTPRequest) GetHeader() http.Header {
+	return httpRequest.Header
+}
+
+func (httpRequest *HTTPRequest) GetBody() io.ReadCloser {
+	return httpRequest.Body
+}
+
+func (httpRequest *HTTPRequest) String() string {
+    s := fmt.Sprintf("%s %s %s/%d.%d\r\n", httpRequest.Method, httpRequest.URL, httpRequest.Proto, httpRequest.ProtoMajor, httpRequest.ProtoMinor)
+    for k, v := range httpRequest.Header {
+        for _, v := range v {
+            s += fmt.Sprintf("%s: %s\r\n", k, v)
+        }
+    }
+    s += "\r\n"
+    if httpRequest.Body != nil {
+        str, _ := ioutil.ReadAll(httpRequest.Body)
+        s += string(str)
+    }
+    return s
 }
 
 func NewHTTPRequest( r *http.Request ) *HTTPRequest {

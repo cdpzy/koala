@@ -11,6 +11,8 @@ type HTTPResponse struct {
     W http.ResponseWriter
 }
 
+func (httpResponse *HTTPResponse) NotFound() {}
+
 func (httpResponse *HTTPResponse) Write( b []byte ) error {
     return nil
 } 

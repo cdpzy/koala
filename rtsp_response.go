@@ -2,12 +2,17 @@ package koala
 
 import (
     "net"
+    "io"
 )
 
 type RTSPResponse struct {
     BaseResponse
     Socket net.Conn
     out chan []byte
+}
+
+func (rtspResponse *RTSPResponse) NotFound() {
+
 }
 
 func (rtspResponse *RTSPResponse) Recv() {
