@@ -2,7 +2,7 @@ package koala
 
 import (
     "net"
-    "io"
+    //"io"
 )
 
 type RTSPResponse struct {
@@ -12,7 +12,7 @@ type RTSPResponse struct {
 }
 
 func (rtspResponse *RTSPResponse) NotFound() {
-
+    
 }
 
 func (rtspResponse *RTSPResponse) Recv() {
