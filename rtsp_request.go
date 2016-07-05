@@ -40,6 +40,10 @@ func (rtspRequest *RTSPRequest) GetBody() io.ReadCloser {
 	return rtspRequest.Body
 }
 
+func (rtspRequest *RTSPRequest) GetURL() *url.URL {
+	return rtspRequest.URL
+}
+
 func (rtspRequest *RTSPRequest) String() string {
     s := fmt.Sprintf("%s %s %s/%d.%d\r\n", rtspRequest.Method, rtspRequest.URL, rtspRequest.Proto, rtspRequest.ProtoMajor, rtspRequest.ProtoMinor)
     for k, v := range rtspRequest.Header {
@@ -126,6 +130,11 @@ func (rtspRequest *RTSPRequest) parseRequest( r io.Reader ) error {
 func (rtspRequest *RTSPRequest) parseVersion(s string) (proto string, major int, minor int, err error) {
     s = strings.TrimRight(s, "\r\n")
     parts := strings.SplitN(s, "/", 2)
+    if len(parts) != 2 {
+        err = errors.New("Invalid version")
+        return
+    }
+
     proto = parts[0]
     parts = strings.SplitN(parts[1], ".", 2)
     if major, err = strconv.Atoi(parts[0]); err != nil {

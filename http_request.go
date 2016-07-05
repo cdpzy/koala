@@ -10,6 +10,7 @@ import (
     "log"
     "strings"
     "net/http"
+	"net/url"
 )
 
 type HTTPRequest struct {
@@ -32,6 +33,12 @@ func (httpRequest *HTTPRequest) GetHeader() http.Header {
 func (httpRequest *HTTPRequest) GetBody() io.ReadCloser {
 	return httpRequest.Body
 }
+
+
+func (httpRequest *HTTPRequest) GetURL() *url.URL {
+	return httpRequest.URL
+}
+
 
 func (httpRequest *HTTPRequest) String() string {
     s := fmt.Sprintf("%s %s %s/%d.%d\r\n", httpRequest.Method, httpRequest.URL, httpRequest.Proto, httpRequest.ProtoMajor, httpRequest.ProtoMinor)

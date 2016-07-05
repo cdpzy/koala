@@ -1,5 +1,9 @@
 package koala
 
+import (
+    "io"
+    "net/http"
+)
 
 // status code
 const ( 
@@ -52,12 +56,24 @@ const (
 
 type Response interface{
     Recv()
-    Write( []byte ) error
+    Write( string ) error
     NotFound()
+    NotSupported( allowedMethod string )
+    BadRequest( allowedMethod string )
     String() string
+    GetHeader() http.Header
 }
 
-type BaseResponse struct {}
+type BaseResponse struct {
+    Status      string
+    StatusCode  int
+    Proto       string 
+    ProtoMajor  int
+    ProtoMinor  int
+    Header      http.Header
+    Body        io.ReadCloser
+    ContentLength int64
+}
 
 func (baseResponse *BaseResponse) Recv() {}
 

@@ -4,6 +4,7 @@ import (
     "io"
     "net"
     "net/http"
+    "net/url"
     "golang.org/x/net/websocket"
 )
 
@@ -17,6 +18,7 @@ type Request interface {
     GetMethod() string
     GetHeader() http.Header
     GetBody()   io.ReadCloser
+    GetURL() *url.URL
     String() string
 }
 
