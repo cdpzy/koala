@@ -5,6 +5,11 @@ import (
     "time"
     "log"
     "runtime"
+    "github.com/doublemo/koala/mediasession"
+)
+
+var (
+    ServerMediaSessionManager *mediasession.ServerMediaSessionManager
 )
 
 type RTSPServer struct {
@@ -27,7 +32,9 @@ func (rtspServer *RTSPServer) Serve( addr string ) error {
         return err
     }
 
-    defer rtspServer.listener.Close()
+    defer rtspServer.Close()
+    ServerMediaSessionManager = mediasession.NewServerMediaSessionManager()
+
     go func() {
 		time.Sleep(100 * time.Millisecond)
 		log.Printf("Listening on %s...\n", addr)
@@ -58,6 +65,11 @@ func (rtspServer *RTSPServer) Serve( addr string ) error {
         }( conn )
     }
     return nil
+}
+
+func (rtspServer *RTSPServer) Close() {
+    rtspServer.listener.Close()
+    ServerMediaSessionManager = mediasession.NewServerMediaSessionManager()
 }
 
 func NewRTSPServer() *RTSPServer {

@@ -75,6 +75,7 @@ func (rtspResponse *RTSPResponse) Write( b string ) error {
     }
 
     rtspResponse.out <- w.Bytes()
+    rtspResponse.Reset()
     return nil
 } 
 
