@@ -42,7 +42,7 @@ func (handleMethod *HandleMethod) OPTIONS() {
 func (handleMethod *HandleMethod) DESCRIBE() {
     header := handleMethod.w.GetHeader()
     path   := strings.Trim(handleMethod.r.GetURL().Path, "/")
-    csep   := header.Get("CSeq")
+    csep   := handleMethod.r.GetHeader().Get("CSeq")
 
     session, err   := ServerMediaSessionManager.Create( path )
     if err != nil {

@@ -5,12 +5,13 @@ import (
     "sync"
     "errors"
     "strings"
+    "github.com/doublemo/koala/helper"
 )
 
 type SubMediaSession interface{
-    GetReferencecounter() int
-    IncrementReferencecounter()
-    DecrementReferencecounter()
+    IncrementTrackId()
+    GetTrackId() string
+    SDPLines()   string
 }
 
 type ServerMediaSession struct {
@@ -18,7 +19,10 @@ type ServerMediaSession struct {
     MediaName        string
     Description      string
     sdp              string
+    SSM              bool   //是否为指定播放源
+    IPAddr           string 
     subMediaSessions map[string]SubMediaSession
+    creationTime     *helper.Time
 }
 
 func (serverMediaSession *ServerMediaSession) AddSubMediaSession( name string, session SubMediaSession ) error {
@@ -30,7 +34,7 @@ func (serverMediaSession *ServerMediaSession) AddSubMediaSession( name string, s
     }
 
     serverMediaSession.subMediaSessions[name] = session
-    session.IncrementReferencecounter()
+    session.IncrementTrackId()
     return nil
 }
 
@@ -46,23 +50,62 @@ func (serverMediaSession *ServerMediaSession) RemoveSubMediaSession( name string
     serverMediaSession.mux.Lock()
     defer serverMediaSession.mux.Unlock()
     
-    session, ok := serverMediaSession.subMediaSessions[name];
+    _, ok := serverMediaSession.subMediaSessions[name];
     if !ok {
         return nil
     }
 
-    if session.GetReferencecounter() < 1 {
-        delete(serverMediaSession.subMediaSessions, name)
-    } else {
-        session.DecrementReferencecounter()
-    }
-
+    delete(serverMediaSession.subMediaSessions, name)
     return nil
 }
 
 func (serverMediaSession *ServerMediaSession) GenerateSDPDescription() string {
+    var (
+        sourceFilterLine string 
+        rangeLine        string
+    )
 
-    return "test"
+    if serverMediaSession.SSM {
+        sourceFilterLine = fmt.Sprintf("a=source-filter: incl IN IP4 * %s\r\na=rtcp-unicast: reflection\r\n", serverMediaSession.IPAddr)
+    } 
+
+    rangeLine     = "a=range:npt=0-\r\n"
+
+    sdpPrefixFmt := "v=0\r\n" +
+                    "o=- %d%06d %d IN IP4 %s\r\n" +
+                    "s=%s\r\n" +
+                    "i=%s\r\n" +
+                    "t=0 0\r\n" +
+                    "a=tool:%s%s\r\n" +
+                    "a=type:broadcast\r\n" +
+                    "a=control:*\r\n" +
+                    "%s" +
+                    "%s" +
+                    "a=x-qt-text-nam:%s\r\n" +
+                    "a=x-qt-text-inf:%s\r\n" +
+                    "%s"
+
+    sdp := fmt.Sprintf( sdpPrefixFmt,
+                        serverMediaSession.creationTime.SEC,
+                        serverMediaSession.creationTime.USEC,
+                        1,
+                        serverMediaSession.IPAddr,
+                        serverMediaSession.Description,
+                        serverMediaSession.MediaName,
+                        helper.SERVER_NAME, 
+                        helper.Version,
+                        sourceFilterLine,
+                        rangeLine,
+                        serverMediaSession.Description,
+                        serverMediaSession.MediaName,
+                        "")
+
+    for _, subsession := range serverMediaSession.subMediaSessions {
+        sdpLines := subsession.SDPLines()
+        sdp += sdpLines
+    }
+
+    return sdp
 }
 
 func NewServerMediaSession( name string, description string) *ServerMediaSession {
@@ -70,6 +113,7 @@ func NewServerMediaSession( name string, description string) *ServerMediaSession
         MediaName        : name,
         Description      : description,
         subMediaSessions : make(map[string]SubMediaSession, 0),
+        creationTime     : helper.GetNowTime(),
     }
 }
 
@@ -144,6 +188,7 @@ func (serverMediaSessionManager *ServerMediaSessionManager) Create( name string 
     switch extension {
         case "264" :
              session = NewServerMediaSession(name, "H.246 Video")
+             session.AddSubMediaSession("H264", NewH264FileMediaSubSession(name))
              serverMediaSessionManager.sessions[name] = session
              return session, nil
     }
