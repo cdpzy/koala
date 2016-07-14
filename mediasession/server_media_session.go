@@ -188,7 +188,7 @@ func (serverMediaSessionManager *ServerMediaSessionManager) Create( name string 
     switch extension {
         case "264" :
              session = NewServerMediaSession(name, "H.246 Video")
-             session.AddSubMediaSession("H264", NewH264FileMediaSubSession(name))
+             session.AddSubMediaSession("H264", NewH264FileMediaSubSession(name, false))
              serverMediaSessionManager.sessions[name] = session
              return session, nil
     }
