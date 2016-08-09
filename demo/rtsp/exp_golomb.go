@@ -194,6 +194,15 @@ func (expGolombReader *ExpGolombReader) GetStartBit() uint {
 	return expGolombReader.startBit
 }
 
+// WriteByte
+func (expGolombWriter *ExpGolombWriter) WriteByte(v uint) error {
+	if (expGolombWriter.m_nLastbitinbuffer % 8) == 0 {
+		return expGolombWriter.addbytetostream(int(v))
+	}
+
+	return expGolombWriter.WriteBits(v, 8)
+}
+
 // WriteBits 写入指定位的值
 func (expGolombWriter *ExpGolombWriter) WriteBits(v uint, numBits int) error {
 	if numBits <= 0 || numBits > 64 {
