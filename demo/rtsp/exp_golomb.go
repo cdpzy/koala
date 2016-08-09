@@ -1,4 +1,8 @@
+// @author Randy Ma <435420057@qq.com>
+
 /**
+ *
+ * 用于处理H264 PPS SPS 解码
  * 指数哥伦布编码
  * 规定语法元素的编解码模式的描述符如下：
  * 比特串：
@@ -10,63 +14,85 @@
  * 指数哥伦布编码：
  * ue(v):   无符号整数指数哥伦布码编码的语法元素
  * se(v):   有符号整数指数哥伦布编码的语法元素，位在先
- * te(v):    舍位指数哥伦布码编码语法元素，左位在先
+ * te(v):   舍位指数哥伦布码编码语法元素，左位在先
  * ce(v)：CAVLC
  * ae(v)：CABAC。
- * https://jordicenzano.name/2014/08/31/the-source-code-of-a-minimal-h264-encoder-c/
+ * 参考 : https://jordicenzano.name/2014/08/31/the-source-code-of-a-minimal-h264-encoder-c/
  */
-//  m := math.Floor(math.Log2(float64(v) + 1))
-//  i := float64(v) + 1 - math.Pow(2, m)
 
-//  fmt.Println(m, "->", i)
-//  fmt.Printf("%b\n", uint(i))
 package main
 
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"math"
 )
 
-type ExpGolomb struct {
-	data     []byte
-	buffer   *bytes.Buffer
+const (
+	BUFFER_SIZE_BITS                    = 24
+	BUFFER_SIZE_BYTES                   = (24 / 8)
+	H264_EMULATION_PREVENTION_BYTE uint = 0x03
+)
+
+// ExpGolombReader 指数哥伦布编码流进行处理,主要针对H264 PPS,SPS等
+type ExpGolombReader struct {
+	buffer   []byte
 	startBit uint
 }
 
-/*
- * 从数据流data中第StartBit位开始读，读bitCnt位，以无符号整形返回
- */
-func (expGolomb *ExpGolomb) ReadBits(numBits int) uint {
-	var (
-		ret uint
-	)
+// ExpGolombWriter 指数哥伦布编码写入
+type ExpGolombWriter struct {
+	bytes  []byte
+	buffer *bytes.Buffer
 
-	start := expGolomb.startBit
+	m_nLastbitinbuffer int // bit 计数器
+
+	m_nStartingbyte int // 起始位置记录
+}
+
+// NewExpGolombReader 创建指数哥伦布编码流解析
+func NewExpGolombReader(d []byte) *ExpGolombReader {
+	return &ExpGolombReader{d, 0}
+}
+
+// NewExpGolombWriter 创建指数哥伦布编码流编码
+func NewExpGolombWriter() *ExpGolombWriter {
+	return &ExpGolombWriter{
+		make([]byte, BUFFER_SIZE_BITS),
+		bytes.NewBuffer(make([]byte, 0)),
+		0,
+		0,
+	}
+}
+
+// ReadBits 从数据流buffer中第StartBit位开始读，读numBits位，以无符号整形返回
+func (expGolombReader *ExpGolombReader) ReadBits(numBits int) uint {
+	var ret uint
+	start := expGolombReader.startBit
 	for i := 0; i < numBits; i++ {
 		ret <<= 1
-		if (expGolomb.data[start/8] & (0x80 >> (start % 8))) != 0 {
-			ret += 1
+		if (expGolombReader.buffer[start/8] & (0x80 >> (start % 8))) != 0 {
+			ret++
 		}
 
 		start++
 	}
 
-	expGolomb.startBit += uint(numBits)
+	expGolombReader.startBit += uint(numBits)
 	return ret
 }
 
-func (expGolomb *ExpGolomb) ReadAtBits(numBits int, startBit uint) uint {
-	var (
-		ret uint
-	)
+// ReadAtBits 根据指定起始位置从数据流中读numBits位，以无符号整形返回
+// numBits
+// startBit 起始位置
+func (expGolombReader *ExpGolombReader) ReadAtBits(numBits int, startBit uint) uint {
+	var ret uint
 
 	start := startBit
 	for i := 0; i < numBits; i++ {
 		ret <<= 1
-		if (expGolomb.data[start/8] & (0x80 >> (start % 8))) != 0 {
-			ret += 1
+		if (expGolombReader.buffer[start/8] & (0x80 >> (start % 8))) != 0 {
+			ret++
 		}
 
 		start++
@@ -75,38 +101,40 @@ func (expGolomb *ExpGolomb) ReadAtBits(numBits int, startBit uint) uint {
 	return ret
 }
 
-func (expGolomb *ExpGolomb) ReadBit() uint {
-	return expGolomb.ReadBits(1)
+// ReadBit 读取1bit，以无符号整形返回
+func (expGolombReader *ExpGolombReader) ReadBit() uint {
+	return expGolombReader.ReadBits(1)
 }
 
+// ReadUE 无符号指数哥伦布编码
 /*
- * 无符号指数哥伦布编码
  * leadingZeroBits = ?1;
  * for( b = 0; !b; leadingZeroBits++ )
- *    b = read_bits( 1 )
+ *    b = ReadBits( 1 )
  * 变量codeNum 按照如下方式赋值：
- * codeNum = 2^leadingZeroBits ? 1 + read_bits( leadingZeroBits )
- * 这里read_bits( leadingZeroBits )的返回值使用高位在先的二进制无符号整数表示。
+ * codeNum = 2^leadingZeroBits ? 1 + ReadBits( leadingZeroBits )
+ * 这里ReadBits( leadingZeroBits )的返回值使用高位在先的二进制无符号整数表示。
  */
-func (expGolomb *ExpGolomb) ReadUE() uint {
+func (expGolombReader *ExpGolombReader) ReadUE() uint {
 	var (
 		idx uint
 		b   uint
 	)
 
 	leadingZeroBits := -1
-	idx = expGolomb.startBit
+	idx = expGolombReader.startBit
 	for b = 0; b != 1; leadingZeroBits++ {
-		b = expGolomb.ReadBits(1)
+		b = expGolombReader.ReadBit()
 		idx++
 	}
 
-	ret := uint(math.Pow(2, float64(leadingZeroBits))) - 1 + expGolomb.ReadAtBits(leadingZeroBits, idx)
-	expGolomb.startBit = idx + uint(leadingZeroBits)
+	ret := uint(math.Pow(2, float64(leadingZeroBits))) - 1 + expGolombReader.ReadAtBits(leadingZeroBits, idx)
+	expGolombReader.startBit = idx + uint(leadingZeroBits)
 	return ret
 }
 
-func (expGolomb *ExpGolomb) ReadAtUE(startBit uint) (uint, uint) {
+// ReadAtUE 无符号指数哥伦布编码, 指定起始位置
+func (expGolombReader *ExpGolombReader) ReadAtUE(startBit uint) (uint, uint) {
 	var (
 		idx uint
 		b   uint
@@ -115,17 +143,18 @@ func (expGolomb *ExpGolomb) ReadAtUE(startBit uint) (uint, uint) {
 	leadingZeroBits := -1
 	idx = startBit
 	for b = 0; b != 1; leadingZeroBits++ {
-		b = expGolomb.ReadBits(1)
+		b = expGolombReader.ReadAtBits(1, idx)
 		idx++
 	}
 
-	ret := uint(math.Pow(2, float64(leadingZeroBits))) - 1 + expGolomb.ReadAtBits(leadingZeroBits, idx)
+	ret := uint(math.Pow(2, float64(leadingZeroBits))) - 1 + expGolombReader.ReadAtBits(leadingZeroBits, idx)
 	startBit = idx + uint(leadingZeroBits)
 	return startBit, ret
 }
 
+// ReadSE 有符号指数哥伦布编码
 /*
- * 有符号指数哥伦布编码
+ * T-REC-H.264-201602-I!!PDF-E.pdf
  * 9.1.1 有符号指数哥伦布编码的映射过程
  *按照9.1节规定，本过程的输入是codeNum。
  *本过程的输出是se(v)的值。
@@ -142,65 +171,92 @@ func (expGolomb *ExpGolomb) ReadAtUE(startBit uint) (uint, uint) {
  *	6		?3
  *	k		(?1)^(k+1) Ceil( k÷2 )
  */
-func (expGolomb *ExpGolomb) ReadSE() int {
-	codeNum := expGolomb.ReadUE()
+func (expGolombReader *ExpGolombReader) ReadSE() int {
+	codeNum := expGolombReader.ReadUE()
 	ret := (math.Pow(-1, float64(codeNum)+1) * math.Ceil(float64(codeNum)/2))
 	return int(ret)
 }
 
-func (expGolomb *ExpGolomb) ReadAtSE(startBit uint) (uint, int) {
-	s, codeNum := expGolomb.ReadAtUE(startBit)
+// ReadAtSE 有符号指数哥伦布编码,指定起始位置
+func (expGolombReader *ExpGolombReader) ReadAtSE(startBit uint) (uint, int) {
+	s, codeNum := expGolombReader.ReadAtUE(startBit)
 	ret := (math.Pow(-1, float64(codeNum)+1) * math.Ceil(float64(codeNum)/2))
 	return s, int(ret)
 }
 
-func (expGolomb *ExpGolomb) GetStartBit() uint {
-	return expGolomb.startBit
+// SkipBits 跳过
+func (expGolombReader *ExpGolombReader) SkipBits(numBits uint) {
+	expGolombReader.startBit += numBits
 }
 
-func (expGolomb *ExpGolomb) WriteBits(v uint, numBits int) error {
+// GetStartBit 获取当前起始位置
+func (expGolombReader *ExpGolombReader) GetStartBit() uint {
+	return expGolombReader.startBit
+}
+
+// WriteBits 写入指定位的值
+func (expGolombWriter *ExpGolombWriter) WriteBits(v uint, numBits int) error {
 	if numBits <= 0 || numBits > 64 {
 		return errors.New("numbits must be between 1 ... 64")
 	}
 
 	nBit := 0
 	n := numBits - 1
-	for {
-		nBit = expGolomb.getBitNum(v, n)
+	for n >= 0 {
+		nBit = expGolombWriter.getBitNum(v, n)
+		expGolombWriter.addbittostream(nBit)
 		n--
-		if n < 0 {
-			break
-		}
-		expGolomb.addbittostream(nBit)
 	}
 	return nil
 }
 
-func (expGolomb *ExpGolomb) addbittostream(nVal int) error {
-	var (
-		nValTmp uint
-		v       uint
-	)
+// 无符号指数哥伦布编码
+func (expGolombWriter *ExpGolombWriter) WriteUE(v uint) error {
+	lvalint := v + 1
+	nnumbits := int(math.Log2(float64(lvalint)) + 1)
 
-	v = 77
-	b := []uint{v >> 24, v >> 16, v >> 8, v}
-	nBytePos := expGolomb.buffer.Len() % len(b)
-	nBitPosInByte := 7 - expGolomb.buffer.Len()%8
-	nValTmp = b[nBytePos]
-	//fmt.Println("nBytePos:", nBytePos, nValTmp)
-	if nVal > 0 {
-		nValTmp = (nValTmp | uint(math.Pow(2, float64(nBitPosInByte))))
-	} else {
-		nValTmp = (nValTmp | ^uint(math.Pow(2, float64(nBitPosInByte))))
+	for n := 0; n < (nnumbits - 1); n++ {
+		expGolombWriter.WriteBits(0, 1)
 	}
 
-	expGolomb.buffer.WriteByte(byte(nValTmp))
-
-	fmt.Println(expGolomb.buffer.Bytes())
+	expGolombWriter.WriteBits(lvalint, nnumbits)
 	return nil
 }
 
-func (expGolomb *ExpGolomb) getBitNum(v uint, numBits int) int {
+// 有符号指数哥伦布编码
+func (expGolombWriter *ExpGolombWriter) WriteSE(v int) error {
+	lvalint := uint(math.Abs(float64(v))*2 - 1)
+	if v <= 0 {
+		lvalint = uint(2 * math.Abs(float64(v)))
+	}
+
+	expGolombWriter.WriteUE(lvalint)
+	return nil
+}
+
+// Write4bytesNoEmulationPrevention 写入4个byte
+func (expGolombWriter *ExpGolombWriter) Write4bytesNoEmulationPrevention(nVal uint, bDoAlign bool) error {
+	if bDoAlign {
+		expGolombWriter.dobytealign()
+	}
+
+	if (expGolombWriter.m_nLastbitinbuffer % 8) != 0 {
+		return errors.New("Error: Save to file must be byte aligned")
+	}
+
+	for expGolombWriter.m_nLastbitinbuffer != 0 {
+		expGolombWriter.savebufferbyte(true)
+	}
+
+	expGolombWriter.buffer.WriteByte(byte((nVal & 0xFF000000) >> 24))
+	expGolombWriter.buffer.WriteByte(byte((nVal & 0xFF000000) >> 16))
+	expGolombWriter.buffer.WriteByte(byte((nVal & 0xFF000000) >> 8))
+	expGolombWriter.buffer.WriteByte(byte(nVal & 0xFF000000))
+	return nil
+}
+
+// getBitNum 获取bit位mask 计算参考
+func (expGolombWriter *ExpGolombWriter) getBitNum(v uint, numBits int) int {
 	mask := uint(math.Pow(2, float64(numBits)))
 	if (v & mask) > 0 {
 		return 1
@@ -209,15 +265,132 @@ func (expGolomb *ExpGolomb) getBitNum(v uint, numBits int) int {
 	return 0
 }
 
-func (expGolomb *ExpGolomb) SkipBits(numBits uint) {
-	expGolomb.startBit += numBits
+// addbittostream 写入bit 流
+func (expGolombWriter *ExpGolombWriter) addbittostream(nVal int) error {
+	var nValTmp uint
+
+	if expGolombWriter.m_nLastbitinbuffer >= BUFFER_SIZE_BITS {
+		expGolombWriter.savebufferbyte(true)
+	}
+
+	nBytePos := (expGolombWriter.m_nStartingbyte + (expGolombWriter.m_nLastbitinbuffer / 8)) % BUFFER_SIZE_BYTES
+	nBitPosInByte := 7 - expGolombWriter.m_nLastbitinbuffer%8
+	nValTmp = uint(expGolombWriter.bytes[nBytePos])
+
+	if nVal > 0 {
+		nValTmp = (nValTmp | uint(math.Pow(2, float64(nBitPosInByte))))
+	} else {
+		nValTmp = (nValTmp & ^uint(math.Pow(2, float64(nBitPosInByte))))
+	}
+
+	expGolombWriter.bytes[nBytePos] = byte(nValTmp)
+	expGolombWriter.m_nLastbitinbuffer++
+	return nil
 }
 
-func NewExpGolomb(data []byte) *ExpGolomb {
-	expGolomb := new(ExpGolomb)
-	expGolomb.data = data
-	expGolomb.buffer = bytes.NewBuffer(make([]byte, 0))
-	expGolomb.startBit = 0
+// addbittostream 写入byte 到bit 流
+func (expGolombWriter *ExpGolombWriter) addbytetostream(nVal int) error {
+	if expGolombWriter.m_nLastbitinbuffer >= BUFFER_SIZE_BITS {
+		expGolombWriter.savebufferbyte(true)
+	}
 
-	return expGolomb
+	nBytePos := (expGolombWriter.m_nStartingbyte + (expGolombWriter.m_nLastbitinbuffer / 8)) % BUFFER_SIZE_BYTES
+	nBitPosInByte := 7 - expGolombWriter.m_nLastbitinbuffer%8
+	if nBitPosInByte != 7 {
+		return errors.New("Error: inserting not aligment byte")
+	}
+
+	expGolombWriter.bytes[nBytePos] = byte(uint(nVal))
+	expGolombWriter.m_nLastbitinbuffer = expGolombWriter.m_nLastbitinbuffer + 8
+	return nil
+}
+
+// savebufferbyte 写入byte 到buffer
+func (expGolombWriter *ExpGolombWriter) savebufferbyte(bemulationprevention bool) error {
+	var (
+		bemulationpreventionexecuted bool
+	)
+
+	if (expGolombWriter.m_nLastbitinbuffer % 8) != 0 {
+		return errors.New("Error: Save to file must be byte aligned")
+	}
+
+	if (expGolombWriter.m_nLastbitinbuffer / 8) <= 0 {
+		return errors.New("Error: NO bytes to save")
+	}
+
+	if bemulationprevention {
+		// Emulation prevention will be used:
+		/*As per h.264 spec,
+		rbsp_data shouldn't contain
+				- 0x 00 00 00
+				- 0x 00 00 01
+				- 0x 00 00 02
+				- 0x 00 00 03
+
+		rbsp_data shall be in the following way
+				- 0x 00 00 03 00
+				- 0x 00 00 03 01
+				- 0x 00 00 03 02
+				- 0x 00 00 03 03
+		*/
+		// Check if emulation prevention is needed (emulation prevention is byte align defined)
+		byte1 := expGolombWriter.bytes[((expGolombWriter.m_nStartingbyte + 0) % BUFFER_SIZE_BYTES)]
+		byte2 := expGolombWriter.bytes[((expGolombWriter.m_nStartingbyte + 1) % BUFFER_SIZE_BYTES)]
+		byte3 := expGolombWriter.bytes[((expGolombWriter.m_nStartingbyte + 2) % BUFFER_SIZE_BYTES)]
+
+		if byte1 == 0x00 && byte2 == 0x00 && (byte3 == 0x00 || byte3 == 0x01 || byte3 == 0x02 || byte3 == 0x03) {
+			nbuffersaved := 0
+			expGolombWriter.buffer.WriteByte(expGolombWriter.bytes[((expGolombWriter.m_nStartingbyte + nbuffersaved) % BUFFER_SIZE_BYTES)])
+
+			nbuffersaved++
+			expGolombWriter.buffer.WriteByte(expGolombWriter.bytes[((expGolombWriter.m_nStartingbyte + nbuffersaved) % BUFFER_SIZE_BYTES)])
+
+			nbuffersaved++
+			expGolombWriter.buffer.WriteByte(byte(H264_EMULATION_PREVENTION_BYTE))
+
+			for nbuffersaved < BUFFER_SIZE_BYTES {
+				expGolombWriter.buffer.WriteByte(expGolombWriter.bytes[((expGolombWriter.m_nStartingbyte + nbuffersaved) % BUFFER_SIZE_BYTES)])
+				nbuffersaved++
+			}
+
+			expGolombWriter.resetBytes()
+			bemulationpreventionexecuted = true
+		}
+
+	}
+
+	if !bemulationpreventionexecuted {
+		expGolombWriter.buffer.WriteByte(expGolombWriter.bytes[expGolombWriter.m_nStartingbyte])
+		expGolombWriter.bytes[expGolombWriter.m_nStartingbyte] = 0
+		expGolombWriter.m_nStartingbyte++
+		expGolombWriter.m_nStartingbyte = expGolombWriter.m_nStartingbyte % BUFFER_SIZE_BYTES
+		expGolombWriter.m_nLastbitinbuffer = expGolombWriter.m_nLastbitinbuffer - 8
+	}
+
+	return nil
+}
+
+// clearbuffer 重置bytes
+func (expGolombWriter *ExpGolombWriter) resetBytes() {
+	expGolombWriter.bytes = make([]byte, BUFFER_SIZE_BITS)
+	expGolombWriter.m_nLastbitinbuffer = 0
+	expGolombWriter.m_nStartingbyte = 0
+}
+
+// dobytealign 对齐
+func (expGolombWriter *ExpGolombWriter) dobytealign() {
+	nr := expGolombWriter.m_nLastbitinbuffer % 8
+	if (nr % 8) != 0 {
+		expGolombWriter.m_nLastbitinbuffer = expGolombWriter.m_nLastbitinbuffer + (8 - nr)
+	}
+}
+
+// Bytes bytes
+func (expGolombWriter *ExpGolombWriter) Bytes() []byte {
+	expGolombWriter.dobytealign()
+	for expGolombWriter.m_nLastbitinbuffer != 0 {
+		expGolombWriter.savebufferbyte(true)
+	}
+	return expGolombWriter.buffer.Bytes()
 }

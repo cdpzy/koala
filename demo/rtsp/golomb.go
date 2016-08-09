@@ -86,16 +86,11 @@ func (h264SPSPaser *H264SPSPaser) UE(data []byte, startBit uint) uint {
  *	k		(?1)^(k+1) Ceil( k÷2 )
  */
 
-func (h264SPSPaser *H264SPSPaser) SE(data []byte, startBit uint) uint {
-	var (
-		ret uint
-	)
+func (h264SPSPaser *H264SPSPaser) SE(data []byte, startBit uint) int {
 
 	codeNum := h264SPSPaser.UE(data, startBit)
-
-	ret = uint((math.Pow(-1, float64(codeNum)+1) * math.Ceil(float64(codeNum)/2)))
-
-	return ret
+	ret := (math.Pow(-1, float64(codeNum)+1) * math.Ceil(float64(codeNum)/2))
+	return int(ret)
 }
 
 func (h264SPSPaser *H264SPSPaser) GetStartBit() uint {
