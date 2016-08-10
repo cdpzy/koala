@@ -7,20 +7,37 @@ import (
 
 var _ = &testing.T{}
 
+func noErrorReadBits(v int, f func(n int) (uint, error)) uint {
+	z, e := f(v)
+	if e != nil {
+		panic(e)
+	}
+
+	return z
+}
+func noErrorReadUE(f func() (uint, error)) uint {
+	z, e := f()
+	if e != nil {
+		panic(e)
+	}
+
+	return z
+}
+
 func expGolombReadBits() {
 	data := []byte{0x42, 0x00, 0x1E, 0xF1, 0x61, 0x62, 0x62}
 	eg := NewExpGolombReader(data)
-	fmt.Println(eg.ReadBits(8), eg.ReadBits(1), eg.ReadBits(1), eg.ReadBits(1))
-	fmt.Println(eg.ReadBits(1), eg.ReadBits(1), eg.ReadBits(1), eg.ReadBits(2), eg.ReadBits(8))
-	fmt.Println("seq_parameter_set_id = ", eg.ReadUE())
-	fmt.Println("log2_max_frame_num_minus4 = ", eg.ReadUE())
-	fmt.Println("pic_order_cnt_type = ", eg.ReadUE())
-	fmt.Println("log2_max_pic_order_cnt_lsb_minus4 = ", eg.ReadUE())
-	fmt.Println("max_num_ref_frames = ", eg.ReadUE())
-	fmt.Println("gaps_in_frame_num_value_allowed_flag  = ", eg.ReadBits(1))
-	fmt.Println("pic_width_in_mbs_minus1 = ", eg.ReadUE())
-	fmt.Println("pic_height_in_map_units_minus1  = ", eg.ReadUE())
-	fmt.Println("frame_mbs_only_flag   = ", eg.ReadBits(1))
+	fmt.Println(noErrorReadBits(8, eg.ReadBits), noErrorReadBits(1, eg.ReadBits), noErrorReadBits(1, eg.ReadBits), noErrorReadBits(1, eg.ReadBits))
+	fmt.Println(noErrorReadBits(1, eg.ReadBits), noErrorReadBits(1, eg.ReadBits), noErrorReadBits(1, eg.ReadBits), noErrorReadBits(2, eg.ReadBits), noErrorReadBits(8, eg.ReadBits))
+	fmt.Println("seq_parameter_set_id = ", noErrorReadUE(eg.ReadUE))
+	fmt.Println("log2_max_frame_num_minus4 = ", noErrorReadUE(eg.ReadUE))
+	fmt.Println("pic_order_cnt_type = ", noErrorReadUE(eg.ReadUE))
+	fmt.Println("log2_max_pic_order_cnt_lsb_minus4 = ", noErrorReadUE(eg.ReadUE))
+	fmt.Println("max_num_ref_frames = ", noErrorReadUE(eg.ReadUE))
+	fmt.Println("gaps_in_frame_num_value_allowed_flag  = ", noErrorReadBits(1, eg.ReadBits))
+	fmt.Println("pic_width_in_mbs_minus1 = ", noErrorReadUE(eg.ReadUE))
+	fmt.Println("pic_height_in_map_units_minus1  = ", noErrorReadUE(eg.ReadUE))
+	fmt.Println("frame_mbs_only_flag   = ", noErrorReadBits(1, eg.ReadBits))
 }
 
 func expGolombWriteBits() {

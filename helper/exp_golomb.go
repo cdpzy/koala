@@ -68,11 +68,15 @@ func NewExpGolombWriter() *ExpGolombWriter {
 }
 
 // ReadBits 从数据流buffer中第StartBit位开始读，读numBits位，以无符号整形返回
-func (expGolombReader *ExpGolombReader) ReadBits(numBits int) uint {
+func (expGolombReader *ExpGolombReader) ReadBits(numBits int) (uint, error) {
 	var ret uint
 	start := expGolombReader.startBit
 	for i := 0; i < numBits; i++ {
 		ret <<= 1
+		if (start/8 + 1) > uint(len(expGolombReader.buffer)) {
+			return 0, errors.New("EOF")
+		}
+
 		if (expGolombReader.buffer[start/8] & (0x80 >> (start % 8))) != 0 {
 			ret++
 		}
@@ -81,18 +85,23 @@ func (expGolombReader *ExpGolombReader) ReadBits(numBits int) uint {
 	}
 
 	expGolombReader.startBit += uint(numBits)
-	return ret
+	return ret, nil
 }
 
 // ReadAtBits 根据指定起始位置从数据流中读numBits位，以无符号整形返回
 // numBits
 // startBit 起始位置
-func (expGolombReader *ExpGolombReader) ReadAtBits(numBits int, startBit uint) uint {
+func (expGolombReader *ExpGolombReader) ReadAtBits(numBits int, startBit uint) (uint, error) {
 	var ret uint
 
 	start := startBit
 	for i := 0; i < numBits; i++ {
 		ret <<= 1
+
+		if (start/8 + 1) > uint(len(expGolombReader.buffer)) {
+			return 0, errors.New("EOF")
+		}
+
 		if (expGolombReader.buffer[start/8] & (0x80 >> (start % 8))) != 0 {
 			ret++
 		}
@@ -100,11 +109,11 @@ func (expGolombReader *ExpGolombReader) ReadAtBits(numBits int, startBit uint) u
 		start++
 	}
 
-	return ret
+	return ret, nil
 }
 
 // ReadBit 读取1bit，以无符号整形返回
-func (expGolombReader *ExpGolombReader) ReadBit() uint {
+func (expGolombReader *ExpGolombReader) ReadBit() (uint, error) {
 	return expGolombReader.ReadBits(1)
 }
 
@@ -117,41 +126,58 @@ func (expGolombReader *ExpGolombReader) ReadBit() uint {
  * codeNum = 2^leadingZeroBits ? 1 + ReadBits( leadingZeroBits )
  * 这里ReadBits( leadingZeroBits )的返回值使用高位在先的二进制无符号整数表示。
  */
-func (expGolombReader *ExpGolombReader) ReadUE() uint {
+func (expGolombReader *ExpGolombReader) ReadUE() (uint, error) {
 	var (
 		idx uint
 		b   uint
+		err error
 	)
 
 	leadingZeroBits := -1
 	idx = expGolombReader.startBit
 	for b = 0; b != 1; leadingZeroBits++ {
-		b = expGolombReader.ReadBit()
+		b, err = expGolombReader.ReadBit()
+		if err != nil {
+			return 0, err
+		}
 		idx++
 	}
 
-	ret := uint(math.Pow(2, float64(leadingZeroBits))) - 1 + expGolombReader.ReadAtBits(leadingZeroBits, idx)
+	n, err := expGolombReader.ReadAtBits(leadingZeroBits, idx)
+	if err != nil {
+		return 0, err
+	}
+	ret := uint(math.Pow(2, float64(leadingZeroBits))) - 1 + n
 	expGolombReader.startBit = idx + uint(leadingZeroBits)
-	return ret
+	return ret, nil
 }
 
 // ReadAtUE 无符号指数哥伦布编码, 指定起始位置
-func (expGolombReader *ExpGolombReader) ReadAtUE(startBit uint) (uint, uint) {
+func (expGolombReader *ExpGolombReader) ReadAtUE(startBit uint) (uint, uint, error) {
 	var (
 		idx uint
 		b   uint
+		err error
 	)
 
 	leadingZeroBits := -1
 	idx = startBit
 	for b = 0; b != 1; leadingZeroBits++ {
-		b = expGolombReader.ReadAtBits(1, idx)
+		b, err = expGolombReader.ReadAtBits(1, idx)
+		if err != nil {
+			return 0, 0, err
+		}
 		idx++
 	}
 
-	ret := uint(math.Pow(2, float64(leadingZeroBits))) - 1 + expGolombReader.ReadAtBits(leadingZeroBits, idx)
+	n, err := expGolombReader.ReadAtBits(leadingZeroBits, idx)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	ret := uint(math.Pow(2, float64(leadingZeroBits))) - 1 + n
 	startBit = idx + uint(leadingZeroBits)
-	return startBit, ret
+	return startBit, ret, nil
 }
 
 // ReadSE 有符号指数哥伦布编码
@@ -173,17 +199,23 @@ func (expGolombReader *ExpGolombReader) ReadAtUE(startBit uint) (uint, uint) {
  *	6		?3
  *	k		(?1)^(k+1) Ceil( k÷2 )
  */
-func (expGolombReader *ExpGolombReader) ReadSE() int {
-	codeNum := expGolombReader.ReadUE()
+func (expGolombReader *ExpGolombReader) ReadSE() (int, error) {
+	codeNum, err := expGolombReader.ReadUE()
+	if err != nil {
+		return 0, err
+	}
 	ret := (math.Pow(-1, float64(codeNum)+1) * math.Ceil(float64(codeNum)/2))
-	return int(ret)
+	return int(ret), nil
 }
 
 // ReadAtSE 有符号指数哥伦布编码,指定起始位置
-func (expGolombReader *ExpGolombReader) ReadAtSE(startBit uint) (uint, int) {
-	s, codeNum := expGolombReader.ReadAtUE(startBit)
+func (expGolombReader *ExpGolombReader) ReadAtSE(startBit uint) (uint, int, error) {
+	s, codeNum, err := expGolombReader.ReadAtUE(startBit)
+	if err != nil {
+		return 0, 0, err
+	}
 	ret := (math.Pow(-1, float64(codeNum)+1) * math.Ceil(float64(codeNum)/2))
-	return s, int(ret)
+	return s, int(ret), nil
 }
 
 // SkipBits 跳过
