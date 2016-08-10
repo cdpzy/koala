@@ -18,9 +18,11 @@
  * ce(v)：CAVLC
  * ae(v)：CABAC。
  * 参考 : https://jordicenzano.name/2014/08/31/the-source-code-of-a-minimal-h264-encoder-c/
+ *        http://www.2cto.com/kf/201506/408667.html
+ *        http://guoh.org/lifelog/2013/10/h-264-bit-stream-sps-pps-idr-nalu/
  */
 
-package main
+package helper
 
 import (
 	"bytes"
