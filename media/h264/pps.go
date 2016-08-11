@@ -2,6 +2,7 @@ package h264
 
 import (
 	"errors"
+	"math"
 
 	"github.com/doublemo/koala/helper"
 )
@@ -62,6 +63,7 @@ func (picParameterSetRBSP *PicParameterSetRBSP) ParseBytes(b []byte) (err error)
 		iGroup                        uint
 		i                             uint
 		pic_scaling_list_present_flag uint
+		sliceGroupIdLen               int
 	)
 
 	eg := helper.NewExpGolombReader(b)
@@ -88,7 +90,8 @@ func (picParameterSetRBSP *PicParameterSetRBSP) ParseBytes(b []byte) (err error)
 		} else if picParameterSetRBSP.SliceGroupMapType == 6 {
 			picParameterSetRBSP.PicSizeInMapUnitsMinus1 = handleParseError(eg.ReadUE())
 			for i = 0; i < picParameterSetRBSP.PicSizeInMapUnitsMinus1; i++ {
-				picParameterSetRBSP.SliceGroupID = append(picParameterSetRBSP.SliceGroupID, handleParseError(eg.ReadUV())) // u(v)
+				sliceGroupIdLen = int(math.Ceil(math.Log2(float64(picParameterSetRBSP.NumSliceGroupsMinus1 + 1))))
+				picParameterSetRBSP.SliceGroupID = append(picParameterSetRBSP.SliceGroupID, handleParseError(eg.ReadBits(sliceGroupIdLen))) // u(v)
 			}
 		}
 	}

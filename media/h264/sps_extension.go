@@ -11,7 +11,7 @@ import (
 type SequenceParameterSetExtensionRBSP struct {
 	SeqParameterSetID       uint
 	AuxFormatIdc            uint
-	BitDepthAuxMinus        uint
+	BitDepthAuxMinus8       uint
 	AlphaIncrFlag           uint
 	AlphaOpaqueValue        uint
 	AlphaTransparentValue   uint
@@ -36,15 +36,18 @@ func (sequenceParameterSetExtensionRBSP *SequenceParameterSetExtensionRBSP) Pars
 		}
 	}()
 
+	var v int
+
 	eg := helper.NewExpGolombReader(b)
 	sequenceParameterSetExtensionRBSP.SeqParameterSetID = handleParseError(eg.ReadUE())
 	sequenceParameterSetExtensionRBSP.AuxFormatIdc = handleParseError(eg.ReadUE())
 
 	if sequenceParameterSetExtensionRBSP.AuxFormatIdc != 0 {
-		sequenceParameterSetExtensionRBSP.BitDepthAuxMinus = handleParseError(eg.ReadUE())
-		sequenceParameterSetExtensionRBSP.AlphaIncrFlag = handleParseError(eg.ReadUV())         // u(v)
-		sequenceParameterSetExtensionRBSP.AlphaOpaqueValue = handleParseError(eg.ReadUV())      // u(v)
-		sequenceParameterSetExtensionRBSP.AlphaTransparentValue = handleParseError(eg.ReadUV()) // u(v)
+		sequenceParameterSetExtensionRBSP.BitDepthAuxMinus8 = handleParseError(eg.ReadUE())
+		sequenceParameterSetExtensionRBSP.AlphaIncrFlag = handleParseError(eg.ReadBit())
+		v = int(sequenceParameterSetExtensionRBSP.BitDepthAuxMinus8 + 9)
+		sequenceParameterSetExtensionRBSP.AlphaOpaqueValue = handleParseError(eg.ReadBits(v))      // u(v)
+		sequenceParameterSetExtensionRBSP.AlphaTransparentValue = handleParseError(eg.ReadBits(v)) // u(v)
 	}
 
 	sequenceParameterSetExtensionRBSP.AdditionalExtensionFlag = handleParseError(eg.ReadBit())

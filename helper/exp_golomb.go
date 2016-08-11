@@ -117,6 +117,27 @@ func (expGolombReader *ExpGolombReader) ReadBit() (uint, error) {
 	return expGolombReader.ReadBits(1)
 }
 
+// ReadIBits 从数据流buffer中第StartBit位开始读，读numBits位，以有符号整形返回
+func (expGolombReader *ExpGolombReader) ReadIBits(numBits int) (int, error) {
+	var ret int
+	start := expGolombReader.startBit
+	for i := 0; i < numBits; i++ {
+		ret <<= 1
+		if (start/8 + 1) > uint(len(expGolombReader.buffer)) {
+			return 0, errors.New("EOF")
+		}
+
+		if (expGolombReader.buffer[start/8] & (0x80 >> (start % 8))) != 0 {
+			ret++
+		}
+
+		start++
+	}
+
+	expGolombReader.startBit += uint(numBits)
+	return ret, nil
+}
+
 // ReadUE 无符号指数哥伦布编码
 /*
  * leadingZeroBits = ?1;
