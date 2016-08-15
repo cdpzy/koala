@@ -1,9 +1,8 @@
 package media
 
 import (
-	"bytes"
+	"encoding/base64"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/doublemo/koala/media/h264"
@@ -82,8 +81,21 @@ func (h264MediaSubSession *H264MediaSubSession) GenerateSDP() string {
 
 // GenerateAuxSDPLine aux
 func (h264MediaSubSession *H264MediaSubSession) GenerateAuxSDPLine() string {
-	fmt.Println(h264MediaSubSession.readMediaParameters())
-	return ""
+	err := h264MediaSubSession.readMediaParameters()
+	if err != nil {
+		return ""
+	}
+
+	if len(h264MediaSubSession.sps) < 1 {
+		return ""
+	}
+
+	spsObject := h264.NewSequenceParameterSetRBSP()
+	spsObject.ParseBytes(h264MediaSubSession.sps)
+
+	pps := base64.StdEncoding.EncodeToString(h264MediaSubSession.pps)
+	sps := base64.StdEncoding.EncodeToString(h264MediaSubSession.sps)
+	return fmt.Sprintf("a=fmtp:%d packetization-mode=1;profile-level-id=%06X;sprop-parameter-sets=%s,%s\r\n", h264MediaSubSession.rtpPayload, spsObject.ProfileIdc, sps, pps)
 }
 
 //
@@ -93,12 +105,20 @@ func (h264MediaSubSession *H264MediaSubSession) readMediaParameters() error {
 		return err
 	}
 
+	defer fid.Close()
+
 	fileInfo, err := fid.Stat()
 	if err != nil {
 		return err
 	}
 
 	h264MediaSubSession.FileSize = fileInfo.Size()
+	nal := h264.NewNalUnit()
+
+	var (
+		bytes      []byte
+		preNalUint *h264.NalUnit
+	)
 
 	for {
 		data := make([]byte, 20000)
@@ -107,31 +127,52 @@ func (h264MediaSubSession *H264MediaSubSession) readMediaParameters() error {
 			break
 		}
 
-		reader := bytes.NewReader(data)
-		nal := h264.NewNalUnit()
+		idx := 0
+		oldbytes := bytes
+		bytes = make([]byte, len(oldbytes)+20000)
+		copy(bytes[0:len(oldbytes)], oldbytes[0:])
+		copy(bytes[len(oldbytes):], data[0:])
+		for idx < len(bytes) {
+			if preNalUint != nil {
+				_, byteI := nal.IndexByte(bytes, idx)
+				if byteI == -1 {
+					preNalUint.ParameterBytes = append(preNalUint.ParameterBytes, bytes...)
+					break
+				}
 
-		for {
-			err = nal.ParseBytes(reader)
-			if err == io.EOF {
+				if byteI != 0 {
+					preNalUint.ParameterBytes = append(preNalUint.ParameterBytes, bytes[idx:byteI]...)
+				}
+
+				switch preNalUint.NalUnitType {
+				case h264.NALU_TYPE_PPS:
+					h264MediaSubSession.pps = preNalUint.ParameterBytes
+				case h264.NALU_TYPE_SPS:
+					h264MediaSubSession.sps = preNalUint.ParameterBytes
+				case h264.NALU_TYPE_SEI:
+					h264MediaSubSession.sei = preNalUint.ParameterBytes
+				}
+				preNalUint = nil
+				idx = byteI
+			}
+
+			n, err := nal.ParseBytes(bytes[idx:])
+			if err != nil {
 				break
 			}
 
-			//if err.Error() == "NotFound" {
+			idx += n
 			switch nal.NalUnitType {
 			case h264.NALU_TYPE_PPS:
-				nal.Read(reader, &h264MediaSubSession.pps)
-				fmt.Println("OKPPS")
+				h264MediaSubSession.pps = nal.ParameterBytes
 			case h264.NALU_TYPE_SPS:
-				//nal.Read(reader, &h264MediaSubSession.sps)
+				h264MediaSubSession.sps = nal.ParameterBytes
 			case h264.NALU_TYPE_SEI:
-				//nal.Read(reader, &h264MediaSubSession.sei)
+				h264MediaSubSession.sei = nal.ParameterBytes
 			}
-			//}
 		}
+		bytes = bytes[idx:]
+		preNalUint = nal
 	}
-
-	fmt.Println("h264MediaSubSession.pps = ", h264MediaSubSession.pps)
-	fmt.Println("h264MediaSubSession.sps = ", h264MediaSubSession.sps)
-	fmt.Println("h264MediaSubSession.sei = ", h264MediaSubSession.sei)
 	return nil
 }

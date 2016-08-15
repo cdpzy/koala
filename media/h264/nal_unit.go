@@ -1,9 +1,7 @@
 package h264
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
 
 	"github.com/doublemo/koala/helper"
 )
@@ -34,74 +32,85 @@ type NalUnit struct {
 	NalUnitType        uint
 	SvcExtensionFlag   uint
 	Avc3dExtensionFlag uint
+	ParameterBytes     []byte
 }
 
 // NewNalUnit NAL unit syntax
 func NewNalUnit() *NalUnit {
-	return new(NalUnit)
+	nal := new(NalUnit)
+	nal.ParameterBytes = make([]byte, 0)
+	return nal
 }
 
 // ParseBytes parse
-func (nalUnit *NalUnit) ParseBytes(reader *bytes.Reader) error {
-	header := make([]byte, 4)
-	_, err := reader.Read(header)
+func (nalUnit *NalUnit) ParseBytes(b []byte) (index int, err error) {
+	l, n := nalUnit.IndexByte(b, 0)
+	if n == -1 {
+		err = errors.New("nomatch")
+		return
+	}
+
+	idx := n
+
+	var data []byte
+	_, next := nalUnit.IndexByte(b, n+l)
+	if next == -1 {
+		data = b[n:]
+		idx = len(b)
+	} else {
+		data = b[n:next]
+		idx = next
+	}
+
+	eg := helper.NewExpGolombReader(data[l:])
+	nalUnit.ForbiddenZeroBit, err = eg.ReadBit()
 	if err != nil {
-		return err
+		return
 	}
 
-	test1 := header[0] == 0x00 && header[1] == 0x00 && header[2] == 0x00 && header[3] == 0x01
-	test2 := header[0] == 0x00 && header[1] == 0x00 && header[2] == 0x01
-
-	if !test1 && !test2 {
-		return errors.New("NotFound")
-	}
-
-	if test2 {
-		reader.UnreadByte()
-	}
-
-	_, err = reader.Read(header)
+	nalUnit.NalRefIdc, err = eg.ReadBits(2)
 	if err != nil {
-		return err
+		return
 	}
 
-	eg := helper.NewExpGolombReader(header)
-	nalUnit.ForbiddenZeroBit = handleParseError(eg.ReadBit())
-	nalUnit.NalRefIdc = handleParseError(eg.ReadBits(2))
-	nalUnit.NalUnitType = handleParseError(eg.ReadBits(5))
-	return nil
+	nalUnit.NalUnitType, err = eg.ReadBits(5)
+	if err != nil {
+		return
+	}
+
+	nalUnit.ParameterBytes = data[l+1:]
+	index = idx
+	return
 }
 
-// read
-func (nalUnit *NalUnit) Read(reader *bytes.Reader, data *[]byte) error {
-	byte0, err := reader.ReadByte()
-	if err != nil {
-		return err
+func (nalUnit *NalUnit) IndexByte(b []byte, s int) (int, int) {
+	if s > len(b) || len(b) < 3 {
+		return 0, -1
+	}
+	m := false
+	x := 0
+	for s < len(b) {
+		if s+3 <= len(b) {
+			if b[s] == 0x00 && b[s+1] == 0x00 && b[s+2] == 0x01 {
+				m = true
+				x = 3
+				break
+			}
+		}
+
+		if s+4 <= len(b) {
+			if b[s] == 0x00 && b[s+1] == 0x00 && b[s+2] == 0x00 && b[s+3] == 0x1 {
+				m = true
+				x = 4
+				break
+			}
+		}
+		s++
 	}
 
-	if byte0 != 0x00 {
-		*data = append(*data, byte0)
-		return nalUnit.Read(reader, data)
+	if !m {
+		return 0, -1
 	}
 
-	reader.UnreadByte()
-	header := make([]byte, 4)
-	_, err = reader.Read(header)
-	if err != nil {
-		return err
-	}
-	fmt.Println("header = ", header)
-	reader.UnreadByte()
-	reader.UnreadByte()
-	reader.UnreadByte()
-
-	test1 := header[0] == 0x00 && header[1] == 0x00 && header[2] == 0x00 && header[3] == 0x01
-	test2 := header[0] == 0x00 && header[1] == 0x00 && header[2] == 0x01
-	if !test1 && !test2 {
-		*data = append(*data, header[0])
-		return nalUnit.Read(reader, data)
-	}
-
-	reader.UnreadByte()
-	return nil
+	return x, s
 }

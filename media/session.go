@@ -27,13 +27,13 @@ type MediaSession struct {
 	IsSSM             bool   // Source Specific Multicast (SSM) Sessions
 	MiscSDPLines      string // miscellaneous session SDP lines (if any)
 	subsessionCounter int
+	CreateAt          *helper.Time
 }
 
 // NewMediaSessionManager 创建session 管理器
 func NewMediaSessionManager() *MediaSessionManager {
 	sessionManager := new(MediaSessionManager)
 	sessionManager.container = make(map[string]*MediaSession)
-
 	return sessionManager
 }
 
@@ -44,6 +44,7 @@ func NewMediaSession(name, description string) *MediaSession {
 	mediaSession.Description = description
 	mediaSession.subsessions = make(map[string]MediaSubSession)
 	mediaSession.subsessionCounter = 0
+	mediaSession.CreateAt = helper.GetNowTime()
 	return mediaSession
 }
 
@@ -129,8 +130,8 @@ func (mediaSession *MediaSession) GenerateSDP() string {
 		"%s"
 
 	sdp := fmt.Sprintf(sdpPrefixFmt,
-		0,
-		0,
+		mediaSession.CreateAt.SEC,
+		mediaSession.CreateAt.USEC,
 		1,
 		"192.168.18.152",
 		mediaSession.Description,
