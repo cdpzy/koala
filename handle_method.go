@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/doublemo/koala/media"
+	"github.com/doublemo/koala/protocol/rtp"
 )
 
 const AllowedMethod = "OPTIONS, DESCRIBE, SETUP, TEARDOWN, PLAY, PAUSE, GET_PARAMETER, SET_PARAMETER"
@@ -82,15 +83,26 @@ func (handleMethod *HandleMethod) SETUP() {
 	//trackId := paths[1]
 
 	session, err := media.ServerMediaSessionManager.Get(name)
-	fmt.Println("SETP METHOD", handleMethod.r.GetHeader(), csep, path, session, name)
 	if err != nil {
 		handleMethod.w.NotFound()
 		return
 	}
 
+	transport := rtp.ParseTransportHeader(handleMethod.r.GetHeader().Get("transport"))
+	if transport.StreamingMode != rtp.RTP_TCP && transport.RTPChannelID == 0xFF {
+		transport.StreamingMode = rtp.RTP_TCP
+		transport.RTPChannelID = 1
+		transport.RTCPChannelID = 2
+	}
+
 	// if session.Gen
 
-	fmt.Println("SETP METHOD", handleMethod.r.GetHeader(), csep, path, session, name)
+	rangeHeader, err := rtp.ParseRangeHeader(handleMethod.r.GetHeader().Get("range"))
+	if err == nil {
+
+	}
+
+	fmt.Println("SETP METHOD", handleMethod.r.GetHeader(), transport, session, csep, rangeHeader)
 }
 
 func NewHandleMethod(r Request, w Response) *HandleMethod {
