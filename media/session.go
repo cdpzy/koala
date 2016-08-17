@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/doublemo/koala/helper"
+	"github.com/doublemo/koala/protocol/rtp"
 )
 
 // ServerMediaSessionManager 默认创建媒体管理器
@@ -28,6 +29,17 @@ type MediaSession struct {
 	MiscSDPLines      string // miscellaneous session SDP lines (if any)
 	subsessionCounter int
 	CreateAt          *helper.Time
+}
+
+// StreamParameters 参数
+type StreamParameters struct {
+	IsMulticast     bool
+	ClientRTPPort   int
+	ClientRTCPPort  int
+	ServerRTPPort   int
+	ServerRTCPPort  int
+	DestinationTTL  int
+	DestinationAddr string
 }
 
 // NewMediaSessionManager 创建session 管理器
@@ -221,4 +233,32 @@ func (mediaSession *MediaSession) UnRegisterSubSession(mediaName string) bool {
 
 	delete(mediaSession.subsessions, mediaName)
 	return true
+}
+
+func (mediaSession *MediaSession) GetSubSessionByTaskId(taskId string) MediaSubSession {
+	mediaSession.mux.RLock()
+	defer mediaSession.mux.RUnlock()
+
+	for _, sub := range mediaSession.subsessions {
+		if sub.TrackId() == taskId {
+			return sub
+		}
+	}
+
+	return nil
+}
+
+func (mediaSession *MediaSession) GetStreamParameters(transport *rtp.TransportHeader, trackId string) (*StreamParameters, error) {
+	subsession := mediaSession.GetSubSessionByTaskId(trackId)
+	if subsession == nil {
+		return nil, errors.New("NotFound:" + trackId)
+	}
+
+	parameters := new(StreamParameters)
+	parameters.ClientRTPPort = transport.ClientRTPPortNum
+	parameters.ClientRTCPPort = transport.ClientRTCPPortNum
+	parameters.ServerRTPPort = subsession.GetPort()
+	parameters.ServerRTCPPort = parameters.ServerRTPPort + 1
+	parameters.DestinationAddr = transport.DestinationAddr
+	return parameters, nil
 }

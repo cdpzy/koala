@@ -71,6 +71,7 @@ func (handleMethod *HandleMethod) DESCRIBE() {
 }
 
 func (handleMethod *HandleMethod) SETUP() {
+	header := handleMethod.w.GetHeader()
 	csep := handleMethod.r.GetHeader().Get("CSeq")
 	path := strings.Trim(handleMethod.r.GetURL().Path, "/")
 	paths := strings.Split(path, "/")
@@ -80,7 +81,7 @@ func (handleMethod *HandleMethod) SETUP() {
 	}
 
 	name := paths[0]
-	//trackId := paths[1]
+	trackId := paths[1]
 
 	session, err := media.ServerMediaSessionManager.Get(name)
 	if err != nil {
@@ -89,20 +90,70 @@ func (handleMethod *HandleMethod) SETUP() {
 	}
 
 	transport := rtp.ParseTransportHeader(handleMethod.r.GetHeader().Get("transport"))
-	if transport.StreamingMode != rtp.RTP_TCP && transport.RTPChannelID == 0xFF {
+	if transport.StreamingMode == rtp.RTP_TCP && transport.RTPChannelID == 0xFF {
 		transport.StreamingMode = rtp.RTP_TCP
 		transport.RTPChannelID = 1
 		transport.RTCPChannelID = 2
 	}
 
-	// if session.Gen
-
-	rangeHeader, err := rtp.ParseRangeHeader(handleMethod.r.GetHeader().Get("range"))
-	if err == nil {
-
+	if transport.DestinationAddr == "" {
+		ip := strings.Split(handleMethod.r.GetRemoteAddr().String(), ":")
+		transport.DestinationAddr = ip[0]
 	}
 
-	fmt.Println("SETP METHOD", handleMethod.r.GetHeader(), transport, session, csep, rangeHeader)
+	parameters, err := session.GetStreamParameters(transport, trackId)
+	if err != nil {
+		handleMethod.w.NotFound()
+		return
+	}
+
+	sip := strings.Split(handleMethod.r.GetLocalAddr().String(), ":")
+	sourceSev := sip[0]
+
+	//rangeHeader, err := rtp.ParseRangeHeader(handleMethod.r.GetHeader().Get("range"))
+	//if err == nil {
+
+	//}
+	//x-playNow
+
+	header.Set("CSeq", csep)
+	header.Set("Date", time.Now().String())
+	fmt.Println("transport.StreamingMode =", transport.DestinationAddr)
+	if parameters.IsMulticast {
+		switch transport.StreamingMode {
+		case rtp.RTP_UDP:
+			transportString := fmt.Sprintf("RTP/AVP;multicast;destination=%s;source=%s;port=%d-%d;ttl=%d", parameters.DestinationAddr, sourceSev, parameters.ServerRTPPort, parameters.ServerRTCPPort, parameters.DestinationTTL)
+			header.Set("Transport", transportString)
+		case rtp.RAW_UDP:
+			transportString := fmt.Sprintf("%s;multicast;destination=%s;source=%s;port=%d;ttl=%d", transport.StreamingModeName, parameters.DestinationAddr, sourceSev, parameters.ServerRTPPort, parameters.DestinationTTL)
+			header.Set("Transport", transportString)
+		default:
+			handleMethod.w.NotSupported("Streaming Mode RTP_TCP")
+			return
+		}
+	} else {
+		switch transport.StreamingMode {
+		case rtp.RTP_UDP:
+			transportString := fmt.Sprintf("RTP/AVP;unicast;destination=%s;source=%s;client_port=%d-%d;server_port=%d-%d", parameters.DestinationAddr, sourceSev, parameters.ClientRTPPort, parameters.ClientRTCPPort, parameters.ServerRTPPort, parameters.ServerRTCPPort)
+			header.Set("Transport", transportString)
+
+		case rtp.RTP_TCP:
+			transportString := fmt.Sprintf("RTP/AVP/TCP;unicast;destination=%s;source=%s;interleaved=%d-%d\r\n", parameters.DestinationAddr, sourceSev, transport.RTPChannelID, transport.RTCPChannelID)
+			header.Set("Transport", transportString)
+
+		case rtp.RAW_UDP:
+			transportString := fmt.Sprintf("%s;unicast;destination=%s;source=%s;client_port=%d;server_port=%d", transport.StreamingModeName, parameters.DestinationAddr, sourceSev, parameters.ClientRTPPort, parameters.ServerRTPPort)
+			header.Set("Transport", transportString)
+
+		}
+	}
+
+	header.Set("Session", "45564666ffddf4rr;timeout=600")
+	handleMethod.w.Write("")
+}
+
+func (handleMethod *HandleMethod) PLAY() {
+	fmt.Println("PLAY")
 }
 
 func NewHandleMethod(r Request, w Response) *HandleMethod {

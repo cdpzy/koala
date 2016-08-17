@@ -2,6 +2,7 @@ package rtp
 
 import (
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 )
@@ -84,58 +85,70 @@ func ParseTransportHeader(s string) *TransportHeader {
 // ParseRangeHeader npt =
 func ParseRangeHeader(s string) (*RangeHeader, error) {
 	var (
-		start           float64
-		end             float64
-		numCharsMatched int
+		start float64
+		end   float64
 	)
-	rangeHeader := new(RangeHeader)
-	num, err := fmt.Sscanf(s, "npt = %f - %f", &start, &end)
-	if err != nil {
-		return nil, err
-	}
 
-	if num == 2 {
+	rangeHeader := new(RangeHeader)
+	re := regexp.MustCompile(`\s*=\s*`)
+	s = re.ReplaceAllString(s, "=")
+	re = regexp.MustCompile(`\s*-\s*`)
+	s = re.ReplaceAllString(s, "-")
+
+	num, err := fmt.Sscanf(s, "npt=%f-%f", &start, &end)
+	if err == nil && num == 2 {
 		rangeHeader.Start = start
 		rangeHeader.End = end
 		return rangeHeader, nil
 	}
 
-	num, err = fmt.Sscanf(s, "npt = %f -", &start)
-	if err != nil {
-		return nil, err
-	}
-
-	if num == 1 {
+	num, err = fmt.Sscanf(s, "npt=%f-", &start)
+	if err == nil && num == 1 {
 		rangeHeader.Start = start
 		return rangeHeader, nil
 	}
 
-	if strings.EqualFold(s, "npt = now -") {
-		rangeHeader.Start = 0.0
-		rangeHeader.End = 0.0
+	re = regexp.MustCompile(`(?i)npt\s*=\s*\-[\D]*`)
+	if re.MatchString(s) {
+		rangeHeader.IsNow = true
 		return rangeHeader, nil
 	}
 
-	num, err = fmt.Sscanf(s, "clock = %n", &numCharsMatched)
-	if err != nil {
-		return nil, err
+	num, err = fmt.Sscanf(s, "npt=now-%f", &end)
+	if err == nil && num == 1 {
+		rangeHeader.IsNow = true
+		rangeHeader.End = end
+		return rangeHeader, nil
 	}
 
-	if numCharsMatched > 0 {
-		as, ae := "", ""
-		utcTimes := string(s[numCharsMatched:])
-		num, err = fmt.Sscanf(utcTimes, "%[^-]-%s", &as, &ae)
-		if err != nil {
-			return nil, err
-		}
-
-		if num == 2 {
-			rangeHeader.AbsStartTime = as
-			rangeHeader.AbsEndTime = ae
-		} else if num == 1 {
-			rangeHeader.AbsStartTime = as
-		}
+	re = regexp.MustCompile(`(?i)npt=\s*now\s*(\-\s*)?`)
+	if re.MatchString(s) {
+		rangeHeader.IsNow = true
+		return rangeHeader, nil
 	}
 
-	return rangeHeader, nil
+	//
+	re = regexp.MustCompile(`(?i)clock\s*=\s*([0-9a-z]+)\s*-\s*([0-9a-z]+)*\s*$`)
+	matchs := re.FindStringSubmatch(s)
+	if len(matchs) == 2 {
+		rangeHeader.AbsStartTime = matchs[1]
+		return rangeHeader, nil
+	} else if len(matchs) == 3 {
+		rangeHeader.AbsStartTime = matchs[1]
+		rangeHeader.AbsEndTime = matchs[2]
+		return rangeHeader, nil
+	}
+
+	re = regexp.MustCompile(`(?i)clock\s*=\s*([0-9a-z]+)\s*-\s*([0-9a-z]+)*\s*;\s*time\s*=([0-9a-z]+)\s*$`)
+	matchs = re.FindStringSubmatch(s)
+	if len(matchs) == 3 {
+		rangeHeader.AbsStartTime = matchs[1]
+		return rangeHeader, nil
+	} else if len(matchs) >= 4 {
+		rangeHeader.AbsStartTime = matchs[1]
+		rangeHeader.AbsStartTime = matchs[2]
+		return rangeHeader, nil
+	}
+
+	return nil, io.EOF
 }
