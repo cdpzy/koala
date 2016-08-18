@@ -11,11 +11,10 @@ import (
 // H264MediaSubSession H264
 type H264MediaSubSession struct {
 	BaseMediaSubSession
-	SDPLines   string
-	EstBitrate int
-	pps        []byte
-	sps        []byte
-	sei        []byte
+	SDPLines string
+	pps      []byte
+	sps      []byte
+	sei      []byte
 }
 
 // NewH264MediaSubSession H264

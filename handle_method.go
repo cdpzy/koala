@@ -9,6 +9,7 @@ import (
 
 	"github.com/doublemo/koala/media"
 	"github.com/doublemo/koala/protocol/rtp"
+	"github.com/doublemo/koala/user"
 )
 
 const AllowedMethod = "OPTIONS, DESCRIBE, SETUP, TEARDOWN, PLAY, PAUSE, GET_PARAMETER, SET_PARAMETER"
@@ -118,7 +119,6 @@ func (handleMethod *HandleMethod) SETUP() {
 
 	header.Set("CSeq", csep)
 	header.Set("Date", time.Now().String())
-	fmt.Println("transport.StreamingMode =", transport.DestinationAddr)
 	if parameters.IsMulticast {
 		switch transport.StreamingMode {
 		case rtp.RTP_UDP:
@@ -148,12 +148,108 @@ func (handleMethod *HandleMethod) SETUP() {
 		}
 	}
 
-	header.Set("Session", "45564666ffddf4rr;timeout=600")
+	userSess := user.CreateUserSession()
+	userSess.Set("mediaName", name)
+	userSess.Set("trackId", trackId)
+	userSess.Set("parameters", parameters)
+	userSess.Set("fsm", user.NewFSM())
+	header.Set("Session", fmt.Sprintf("%s;timeout=%d", userSess.SessionID, userSess.Expire))
 	handleMethod.w.Write("")
 }
 
 func (handleMethod *HandleMethod) PLAY() {
-	fmt.Println("PLAY")
+	header := handleMethod.w.GetHeader()
+	csep := handleMethod.r.GetHeader().Get("CSeq")
+	sid := handleMethod.r.GetHeader().Get("Session")
+	scalestring := handleMethod.r.GetHeader().Get("Scale")
+	rangeHeader, rangeErr := rtp.ParseRangeHeader(handleMethod.r.GetHeader().Get("range"))
+
+	header.Set("CSeq", csep)
+	header.Set("Date", time.Now().String())
+
+	userSess, err := user.SessionManager.Get(sid)
+	if err != nil {
+		handleMethod.w.NotFound()
+		return
+	}
+
+	mediaName, err := userSess.Get("mediaName")
+	if err != nil {
+		handleMethod.w.NotFound()
+		return
+	}
+
+	taskId, err := userSess.Get("trackId")
+	if err != nil {
+		taskId = ""
+	}
+
+	session, err := media.ServerMediaSessionManager.Get(mediaName.(string))
+	if err != nil {
+		handleMethod.w.NotFound()
+		return
+	}
+
+	subsession := session.GetSubSessionByTaskId(taskId.(string))
+	if subsession == nil {
+		handleMethod.w.NotFound()
+		return
+	}
+
+	scale := 1.0
+	if scalestring != "" {
+		f, err := strconv.ParseFloat(scalestring, 64)
+		if err == nil {
+			scale = f
+		}
+	}
+	header.Set("Scale", fmt.Sprintf("%f", scale))
+
+	if rangeErr == nil {
+		duration := session.Duration()
+		if rangeHeader.AbsStartTime == "" {
+			if duration < 0.0 {
+				duration = -duration
+			}
+
+			if rangeHeader.Start < 0.0 {
+				rangeHeader.Start = 0.0
+			} else if rangeHeader.Start > duration {
+				rangeHeader.Start = duration
+			}
+
+			if rangeHeader.End < 0.0 {
+				rangeHeader.End = 0.0
+			} else if rangeHeader.End > duration {
+				rangeHeader.End = duration
+			}
+
+			if (scale > 0.0 && rangeHeader.Start > rangeHeader.End && rangeHeader.End > 0.0) || (scale < 0.0 && rangeHeader.Start < rangeHeader.End) {
+				rangeHeader.Start, rangeHeader.End = rangeHeader.End, rangeHeader.Start
+			}
+		}
+
+		if rangeHeader.AbsStartTime != "" {
+			if rangeHeader.AbsEndTime == "" {
+				header.Set("Range", fmt.Sprintf("clock=%s-", rangeHeader.AbsStartTime))
+			} else {
+				header.Set("Range", fmt.Sprintf("clock=%s-%s", rangeHeader.AbsStartTime, rangeHeader.AbsEndTime))
+			}
+		} else {
+			if rangeHeader.End == 0.0 && scale >= 0.0 {
+				header.Set("Range", fmt.Sprintf("npt=%.3f-", rangeHeader.Start))
+			} else {
+				header.Set("Range", fmt.Sprintf("npt=%.3f-%.3f", rangeHeader.Start, rangeHeader.End))
+			}
+		}
+
+	}
+
+	header.Set("RTP-INFO", fmt.Sprintf("%surl=%s/%s;seq=%d;rtptime=%d", "0", handleMethod.r.GetURL().String(), taskId.(string), 500, 0))
+
+	fmt.Println(handleMethod.r.GetHeader(), csep, rangeHeader, userSess, scale, subsession)
+	header.Set("Session", fmt.Sprintf("%s;timeout=%d", userSess.SessionID, userSess.Expire))
+	handleMethod.w.Write("")
 }
 
 func NewHandleMethod(r Request, w Response) *HandleMethod {

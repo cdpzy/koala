@@ -40,6 +40,7 @@ type StreamParameters struct {
 	ServerRTCPPort  int
 	DestinationTTL  int
 	DestinationAddr string
+	StreamBitrate   int
 }
 
 // NewMediaSessionManager 创建session 管理器
@@ -260,5 +261,10 @@ func (mediaSession *MediaSession) GetStreamParameters(transport *rtp.TransportHe
 	parameters.ServerRTPPort = subsession.GetPort()
 	parameters.ServerRTCPPort = parameters.ServerRTPPort + 1
 	parameters.DestinationAddr = transport.DestinationAddr
+	parameters.StreamBitrate = subsession.GetBitrate() * 25 / 2
+
+	if parameters.StreamBitrate < 50*1024 {
+		parameters.StreamBitrate = 50 * 1024
+	}
 	return parameters, nil
 }

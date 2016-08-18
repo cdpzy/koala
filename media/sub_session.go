@@ -15,6 +15,7 @@ type MediaSubSession interface {
 	SetInitialPort(int)
 	SetMultiplexRTCPWithRTP(bool)
 	SetParentDuration(float64)
+	GetBitrate() int
 }
 
 // BaseMediaSubSession 基础session
@@ -29,6 +30,7 @@ type BaseMediaSubSession struct {
 	rtpTimestampFrequency int     // clock rate
 	rtpPayloadFormatName  string  // ncoding name
 	ParentDuration        float64 // 来到低级计算Duration
+	EstBitrate            int
 }
 
 func (baseMediaSubSession *BaseMediaSubSession) TrackId() string {
@@ -96,4 +98,8 @@ func (baseMediaSubSession *BaseMediaSubSession) GenerateRangeLine(absStartTime, 
 	}
 
 	return fmt.Sprintf("a=range:npt=0-%.3f\r\n", duration)
+}
+
+func (baseMediaSubSession *BaseMediaSubSession) GetBitrate() int {
+	return baseMediaSubSession.EstBitrate
 }

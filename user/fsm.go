@@ -1,4 +1,4 @@
-package koala
+package user
 
 const (
 	FSM_PLAYING = iota
@@ -18,4 +18,8 @@ func (fsm *FSM) Play() {}
 func (fsm *FSM) Pause() {}
 
 // Stop media
-func (fms *FSM) Stop() {}
+func (fsm *FSM) Stop() {}
+
+func NewFSM() *FSM {
+	return &FSM{State: FSM_STOP}
+}
