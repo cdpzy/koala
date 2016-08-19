@@ -4,6 +4,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/doublemo/koala/helper"
 	"github.com/satori/go.uuid"
 )
 
@@ -12,8 +13,11 @@ var SessionManager = NewUserSessionManager()
 // UserSession 用户session
 type UserSession struct {
 	SessionID   string
+	SSRC        uint32
+	SeqNo       uint16
 	sessionData map[string]interface{}
-	Expire      int
+	Expire      uint
+	Fsm         *FSM
 }
 
 // UserSessionManager session 管理
@@ -41,6 +45,8 @@ func NewUserSessionManager() *UserSessionManager {
 // RegenerateID 重新生成
 func (userSession *UserSession) RegenerateID() {
 	userSession.SessionID = uuid.NewV4().String()
+	userSession.SSRC = helper.RandomU32()
+	userSession.SeqNo = helper.RandomU16()
 }
 
 func (userSession *UserSession) Set(key string, val interface{}) {

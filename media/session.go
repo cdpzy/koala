@@ -3,6 +3,7 @@ package media
 import (
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/doublemo/koala/helper"
@@ -29,6 +30,8 @@ type MediaSession struct {
 	MiscSDPLines      string // miscellaneous session SDP lines (if any)
 	subsessionCounter int
 	CreateAt          *helper.Time
+	CName             string
+	RTCPAdapter       *rtp.RTCPAdapter
 }
 
 // StreamParameters 参数
@@ -58,6 +61,7 @@ func NewMediaSession(name, description string) *MediaSession {
 	mediaSession.subsessions = make(map[string]MediaSubSession)
 	mediaSession.subsessionCounter = 0
 	mediaSession.CreateAt = helper.GetNowTime()
+	mediaSession.CName, _ = os.Hostname()
 	return mediaSession
 }
 
@@ -267,4 +271,16 @@ func (mediaSession *MediaSession) GetStreamParameters(transport *rtp.TransportHe
 		parameters.StreamBitrate = 50 * 1024
 	}
 	return parameters, nil
+}
+
+func (mediaSession *MediaSession) Play(ssrc uint32, parameters *StreamParameters) {
+	if mediaSession.RTCPAdapter == nil {
+		mediaSession.RTCPAdapter = rtp.NewRTCPAdapter(parameters.StreamBitrate, mediaSession.CName)
+	}
+
+	if !mediaSession.RTCPAdapter.Member.IsMember(ssrc) {
+		mediaSession.RTCPAdapter.Member.Add(rtp.NewRTCPMember(ssrc))
+	}
+
+	mediaSession.RTCPAdapter.Run()
 }

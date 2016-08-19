@@ -149,10 +149,7 @@ func (handleMethod *HandleMethod) SETUP() {
 	}
 
 	userSess := user.CreateUserSession()
-	userSess.Set("mediaName", name)
-	userSess.Set("trackId", trackId)
-	userSess.Set("parameters", parameters)
-	userSess.Set("fsm", user.NewFSM())
+	userSess.Fsm = user.NewFSM(name, trackId, parameters, session)
 	header.Set("Session", fmt.Sprintf("%s;timeout=%d", userSess.SessionID, userSess.Expire))
 	handleMethod.w.Write("")
 }
@@ -173,24 +170,14 @@ func (handleMethod *HandleMethod) PLAY() {
 		return
 	}
 
-	mediaName, err := userSess.Get("mediaName")
+	fsm := userSess.Fsm
+	session, err := media.ServerMediaSessionManager.Get(fsm.MediaName)
 	if err != nil {
 		handleMethod.w.NotFound()
 		return
 	}
 
-	taskId, err := userSess.Get("trackId")
-	if err != nil {
-		taskId = ""
-	}
-
-	session, err := media.ServerMediaSessionManager.Get(mediaName.(string))
-	if err != nil {
-		handleMethod.w.NotFound()
-		return
-	}
-
-	subsession := session.GetSubSessionByTaskId(taskId.(string))
+	subsession := session.GetSubSessionByTaskId(fsm.TaskID)
 	if subsession == nil {
 		handleMethod.w.NotFound()
 		return
@@ -245,9 +232,8 @@ func (handleMethod *HandleMethod) PLAY() {
 
 	}
 
-	header.Set("RTP-INFO", fmt.Sprintf("%surl=%s/%s;seq=%d;rtptime=%d", "0", handleMethod.r.GetURL().String(), taskId.(string), 500, 0))
-
-	fmt.Println(handleMethod.r.GetHeader(), csep, rangeHeader, userSess, scale, subsession)
+	fsm.Play(userSess.SSRC)
+	header.Set("RTP-INFO", fmt.Sprintf("%surl=%s/%s;seq=%d;rtptime=%d", "0", handleMethod.r.GetURL().String(), fsm.TaskID, 500, 0))
 	header.Set("Session", fmt.Sprintf("%s;timeout=%d", userSess.SessionID, userSess.Expire))
 	handleMethod.w.Write("")
 }

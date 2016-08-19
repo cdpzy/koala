@@ -6,3 +6,5 @@ const (
 	RTP_TCP
 	RAW_UDP
 )
+
+type RTPBuffer struct{}
