@@ -233,7 +233,7 @@ func (handleMethod *HandleMethod) PLAY() {
 	}
 
 	fsm.Play(userSess.SSRC)
-	header.Set("RTP-INFO", fmt.Sprintf("%surl=%s/%s;seq=%d;rtptime=%d", "0", handleMethod.r.GetURL().String(), fsm.TaskID, 500, 0))
+	header.Set("RTP-INFO", fmt.Sprintf("%surl=%s/%s;seq=%d;rtptime=%d", "", handleMethod.r.GetURL().String(), fsm.TaskID, 500, 0))
 	header.Set("Session", fmt.Sprintf("%s;timeout=%d", userSess.SessionID, userSess.Expire))
 	handleMethod.w.Write("")
 }

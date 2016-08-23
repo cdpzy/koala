@@ -2,6 +2,8 @@ package rtp
 
 import (
 	"errors"
+	"fmt"
+	"net"
 	"sync"
 )
 
@@ -104,6 +106,23 @@ func (rtcpMemberManager *RTCPMemberManager) NumMember() int {
 	return len(rtcpMemberManager.members)
 }
 
-func (rtcpAdapter *RTCPAdapter) Run() {
+func (rtcpAdapter *RTCPAdapter) Run(clientPort, serverPort string) {
+	addr, _ := net.ResolveUDPAddr("udp", serverPort)
+	udpConn, err := net.ListenUDP(addr.Network(), addr)
+	if err != nil {
+		panic(err)
+	}
 
+	defer udpConn.Close()
+	fmt.Println("UDP:--", serverPort)
+	for {
+		data := make([]byte, MAX_RTCP_PACKET_SIZE)
+		n, remoteAddr, err := udpConn.ReadFromUDP(data[0:])
+		if err != nil {
+			fmt.Println("failed to read UDP msg because of ", err.Error())
+			return
+		}
+
+		fmt.Println("UDPREAD:", string(data), remoteAddr, n)
+	}
 }
