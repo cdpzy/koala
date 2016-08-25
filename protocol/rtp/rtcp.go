@@ -1,8 +1,10 @@
 package rtp
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"sync"
 )
@@ -43,6 +45,20 @@ const (
 	RTCP_SDES_PRIV
 )
 
+// RTCP member type
+const (
+	RTCP_MEMBER_TYPE_SR int = iota // 发送者
+	RTCP_MEMBER_TYPE_RR            // 接收者
+)
+
+// RTPC 包设置 、RFC 3550, chapters 6.3.1 and A.7
+const (
+	RTCP_MIN_TIME     float64 = 5.0  // 最小发包时间
+	RTCP_SR_FR        float64 = 0.25 // 发送者分值
+	RTCP_RR_FR        float64 = 0.75 // 接者分值
+	RTCP_COMPENSATION float64 = 2.71828 - 1.5
+)
+
 type RTCPMember struct {
 	SSRC uint32
 	Type string
@@ -54,9 +70,13 @@ type RTCPMemberManager struct {
 }
 
 type RTCPAdapter struct {
-	Member        *RTCPMemberManager
+	SRMember      *RTCPMemberManager
+	RRMember      *RTCPMemberManager
 	CName         string
 	StreamBitrate int
+	WeSent        bool
+	AvrgSize      float64
+	Initial       bool
 }
 
 func NewRTCPMemberManager() *RTCPMemberManager {
@@ -65,7 +85,8 @@ func NewRTCPMemberManager() *RTCPMemberManager {
 
 func NewRTCPAdapter(StreamBitrate int, cname string) *RTCPAdapter {
 	return &RTCPAdapter{
-		Member:        NewRTCPMemberManager(),
+		SRMember:      NewRTCPMemberManager(),
+		RRMember:      NewRTCPMemberManager(),
 		CName:         cname,
 		StreamBitrate: StreamBitrate,
 	}
@@ -107,22 +128,79 @@ func (rtcpMemberManager *RTCPMemberManager) NumMember() int {
 }
 
 func (rtcpAdapter *RTCPAdapter) Run(clientPort, serverPort string) {
-	addr, _ := net.ResolveUDPAddr("udp", serverPort)
+	go func() {
+		err := rtcpAdapter.Serve(serverPort)
+		if err != nil {
+			fmt.Println("failed to RTCP listen:", serverPort, "(", err, ")")
+		}
+	}()
+}
+
+func (rtcpAdapter *RTCPAdapter) Serve(serverPort string) error {
+	addr, err := net.ResolveUDPAddr("udp", serverPort)
+	if err != nil {
+		return err
+	}
+
 	udpConn, err := net.ListenUDP(addr.Network(), addr)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	defer udpConn.Close()
-	fmt.Println("UDP:--", serverPort)
+	fmt.Println("RTCP listen to :", serverPort)
 	for {
 		data := make([]byte, MAX_RTCP_PACKET_SIZE)
 		n, remoteAddr, err := udpConn.ReadFromUDP(data[0:])
 		if err != nil {
 			fmt.Println("failed to read UDP msg because of ", err.Error())
-			return
+			return err
 		}
 
 		fmt.Println("UDPREAD:", string(data), remoteAddr, n)
 	}
+	return nil
+}
+
+// CalNextPacket 计算RTCP包发送时间
+// RFC 3550
+// rtcpBW 目标 RTCP 带宽。例如用于会话中所有成员的 RTCP 带宽。单位 bit/s。这将是程序开始时,指定给“会话带宽”参数的一部分。
+// weSent 自当前第二个前面的 RTCP 发送后,应用程序又发送了数据,则此项为 true。
+// avg_rtcp_size: 此参与者收到的和发送的 RTCP 复合包的平均大小。单位:bit。按 6.2 节,此大小包括底层传输层和网络层协议头。
+// initial: 如果应用程序还未发送 RTCP 包,则标记为 true。
+func (rtcpAdapter *RTCPAdapter) CalNextPacket(rtcpBW, avrgSize float64, weSent, initial bool) (int64, int64) {
+	min := RTCP_MIN_TIME
+	if initial {
+		min /= 2
+	}
+
+	srNum := rtcpAdapter.SRMember.NumMember()
+	rrNum := rtcpAdapter.RRMember.NumMember()
+	members := srNum + rrNum
+	n := members
+	if srNum <= int(float64(members)*RTCP_SR_FR) {
+		if weSent {
+			rtcpBW *= RTCP_SR_FR
+			n = srNum
+		} else {
+			rtcpBW *= RTCP_RR_FR
+			n = members - srNum
+		}
+	}
+
+	t := math.Max(float64(n)*(avrgSize/rtcpBW), min)
+	td := int64(t * 1e9)
+
+	buffer := make([]byte, 2)
+	rand.Read(buffer[:])
+
+	rndNo := uint16(buffer[0])
+	rndNo |= uint16(buffer[1]) << 8
+	rndF := float64(rndNo)/65536.0 + 0.5
+
+	t *= rndF
+	t /= RTCP_COMPENSATION
+
+	// return as nanoseconds
+	return int64(t * 1e9), td
 }

@@ -65,7 +65,7 @@ func (h264MediaSubSession *H264MediaSubSession) GenerateSDP() string {
 		"video",
 		h264MediaSubSession.GetPort(),
 		h264MediaSubSession.rtpPayload,
-		"192.168.18.152",
+		"192.168.18.150",
 		h264MediaSubSession.EstBitrate,
 		rtpmapLine,  // a=rtpmap:... (if present)
 		rtcpmuxLine, // a=rtcp-mux:... (if present)

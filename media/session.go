@@ -278,10 +278,10 @@ func (mediaSession *MediaSession) Play(ssrc uint32, parameters *StreamParameters
 		mediaSession.RTCPAdapter = rtp.NewRTCPAdapter(parameters.StreamBitrate, mediaSession.CName)
 	}
 
-	if !mediaSession.RTCPAdapter.Member.IsMember(ssrc) {
-		mediaSession.RTCPAdapter.Member.Add(rtp.NewRTCPMember(ssrc))
+	if !mediaSession.RTCPAdapter.RRMember.IsMember(ssrc) {
+		mediaSession.RTCPAdapter.RRMember.Add(rtp.NewRTCPMember(ssrc))
 	}
 
-	go mediaSession.RTCPAdapter.Run(fmt.Sprintf("%s:%d", parameters.DestinationAddr, parameters.ClientRTCPPort), fmt.Sprintf("%s:%d", parameters.DestinationAddr, parameters.ServerRTCPPort))
-	go mediaSession.RTCPAdapter.Run(fmt.Sprintf("%s:%d", parameters.DestinationAddr, parameters.ClientRTPPort), fmt.Sprintf("%s:%d", parameters.DestinationAddr, parameters.ServerRTPPort))
+	mediaSession.RTCPAdapter.Run(fmt.Sprintf("%s:%d", parameters.DestinationAddr, parameters.ClientRTCPPort), fmt.Sprintf("%s:%d", "", parameters.ServerRTCPPort))
+	//mediaSession.RTCPAdapter.Run(fmt.Sprintf("%s:%d", parameters.DestinationAddr, parameters.ClientRTPPort), fmt.Sprintf("%s:%d", parameters.DestinationAddr, parameters.ServerRTPPort))
 }
