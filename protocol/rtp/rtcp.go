@@ -7,6 +7,7 @@ import (
 	"math"
 	"net"
 	"sync"
+	"time"
 )
 
 const (
@@ -60,8 +61,10 @@ const (
 )
 
 type RTCPMember struct {
-	SSRC uint32
-	Type string
+	SSRC           uint32
+	Type           string
+	Active         bool
+	LastPacketTime int64
 }
 
 type RTCPMemberManager struct {
@@ -77,23 +80,25 @@ type RTCPAdapter struct {
 	WeSent        bool
 	AvrgSize      float64
 	Initial       bool
+	ClockRate     int
 }
 
 func NewRTCPMemberManager() *RTCPMemberManager {
 	return &RTCPMemberManager{members: make(map[uint32]*RTCPMember)}
 }
 
-func NewRTCPAdapter(StreamBitrate int, cname string) *RTCPAdapter {
+func NewRTCPAdapter(StreamBitrate int, cname string, ClockRate int) *RTCPAdapter {
 	return &RTCPAdapter{
 		SRMember:      NewRTCPMemberManager(),
 		RRMember:      NewRTCPMemberManager(),
 		CName:         cname,
 		StreamBitrate: StreamBitrate,
+		ClockRate:     ClockRate,
 	}
 }
 
 func NewRTCPMember(ssrc uint32) *RTCPMember {
-	return &RTCPMember{SSRC: ssrc}
+	return &RTCPMember{SSRC: ssrc, Active: true}
 }
 
 func (rtcpMemberManager *RTCPMemberManager) Add(member *RTCPMember) error {
@@ -123,6 +128,10 @@ func (rtcpMemberManager *RTCPMemberManager) IsMember(ssrc uint32) bool {
 	return false
 }
 
+func (rtcpMemberManager *RTCPMemberManager) GetAll() map[uint32]*RTCPMember {
+	return rtcpMemberManager.members
+}
+
 func (rtcpMemberManager *RTCPMemberManager) NumMember() int {
 	return len(rtcpMemberManager.members)
 }
@@ -134,6 +143,47 @@ func (rtcpAdapter *RTCPAdapter) Run(clientPort, serverPort string) {
 			fmt.Println("failed to RTCP listen:", serverPort, "(", err, ")")
 		}
 	}()
+
+	bw := float64(rtcpAdapter.ClockRate) * 8.0 / 20.0
+	if bw < 1 {
+		bw = 64000.0 / 20.0
+	}
+
+	// 	const (
+	//     senderInfoLen  = 20
+	//     reportBlockLen = 24
+	// )
+	avg := rtcpAdapter.SRMember.NumMember()*20 + 24 + 20
+	ti, td := rtcpAdapter.CalNextPacket(bw, float64(avg), rtcpAdapter.WeSent, rtcpAdapter.Initial)
+	nextTime := ti + time.Now().UnixNano()
+	go rtcpAdapter.Loop(ti, td, nextTime)
+}
+
+func (rtcpAdapter *RTCPAdapter) Loop(ti, td, next int64) {
+	granularity := time.Duration(250e6) // 250 ms
+	//ssrcTimeout := 5 * td
+	// dataTimeout := 2 * ti
+	ticker := time.NewTicker(granularity)
+
+	for {
+		select {
+		case <-ticker.C:
+			now := time.Now().UnixNano()
+			if now < next {
+				continue
+			}
+
+			rrMembers := rtcpAdapter.RRMember.GetAll()
+			for ssrc, rr := range rrMembers {
+				switch rr.Active {
+				case true:
+
+				}
+
+				fmt.Println(ssrc)
+			}
+		}
+	}
 }
 
 func (rtcpAdapter *RTCPAdapter) Serve(serverPort string) error {

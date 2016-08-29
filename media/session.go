@@ -32,6 +32,7 @@ type MediaSession struct {
 	CreateAt          *helper.Time
 	CName             string
 	RTCPAdapter       *rtp.RTCPAdapter
+	RTPServer         *rtp.RTPServer
 }
 
 // StreamParameters 参数
@@ -44,6 +45,7 @@ type StreamParameters struct {
 	DestinationTTL  int
 	DestinationAddr string
 	StreamBitrate   int
+	ClockRate       int
 }
 
 // NewMediaSessionManager 创建session 管理器
@@ -266,6 +268,7 @@ func (mediaSession *MediaSession) GetStreamParameters(transport *rtp.TransportHe
 	parameters.ServerRTCPPort = parameters.ServerRTPPort + 1
 	parameters.DestinationAddr = transport.DestinationAddr
 	parameters.StreamBitrate = subsession.GetBitrate() * 25 / 2
+	parameters.ClockRate = subsession.GetClockRate()
 
 	if parameters.StreamBitrate < 50*1024 {
 		parameters.StreamBitrate = 50 * 1024
@@ -275,13 +278,18 @@ func (mediaSession *MediaSession) GetStreamParameters(transport *rtp.TransportHe
 
 func (mediaSession *MediaSession) Play(ssrc uint32, parameters *StreamParameters) {
 	if mediaSession.RTCPAdapter == nil {
-		mediaSession.RTCPAdapter = rtp.NewRTCPAdapter(parameters.StreamBitrate, mediaSession.CName)
+		mediaSession.RTCPAdapter = rtp.NewRTCPAdapter(parameters.StreamBitrate, mediaSession.CName, parameters.ClockRate)
+		mediaSession.RTCPAdapter.Run(fmt.Sprintf("%s:%d", parameters.DestinationAddr, parameters.ClientRTCPPort), fmt.Sprintf("%s:%d", "", parameters.ServerRTCPPort))
 	}
 
 	if !mediaSession.RTCPAdapter.RRMember.IsMember(ssrc) {
 		mediaSession.RTCPAdapter.RRMember.Add(rtp.NewRTCPMember(ssrc))
 	}
 
-	mediaSession.RTCPAdapter.Run(fmt.Sprintf("%s:%d", parameters.DestinationAddr, parameters.ClientRTCPPort), fmt.Sprintf("%s:%d", "", parameters.ServerRTCPPort))
+	if mediaSession.RTPServer == nil {
+		mediaSession.RTPServer = rtp.NewRTPServer()
+		go mediaSession.RTPServer.Serve(fmt.Sprintf("%s:%d", "", parameters.ServerRTPPort))
+	}
+
 	//mediaSession.RTCPAdapter.Run(fmt.Sprintf("%s:%d", parameters.DestinationAddr, parameters.ClientRTPPort), fmt.Sprintf("%s:%d", parameters.DestinationAddr, parameters.ServerRTPPort))
 }

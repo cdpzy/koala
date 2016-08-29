@@ -16,6 +16,7 @@ type MediaSubSession interface {
 	SetMultiplexRTCPWithRTP(bool)
 	SetParentDuration(float64)
 	GetBitrate() int
+	GetClockRate() int
 }
 
 // BaseMediaSubSession 基础session
@@ -102,4 +103,8 @@ func (baseMediaSubSession *BaseMediaSubSession) GenerateRangeLine(absStartTime, 
 
 func (baseMediaSubSession *BaseMediaSubSession) GetBitrate() int {
 	return baseMediaSubSession.EstBitrate
+}
+
+func (baseMediaSubSession *BaseMediaSubSession) GetClockRate() int {
+	return baseMediaSubSession.rtpTimestampFrequency
 }
