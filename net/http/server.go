@@ -45,6 +45,8 @@ func (server *Server) Serve() error {
 		return err
 	}
 
+	log.Infoln("HTTP listening on:", server.s.Addr)
+
 	return server.s.Serve(listener)
 }
 
@@ -90,6 +92,11 @@ func (server *Server) handleRequest(w http.ResponseWriter, r *http.Request, ws *
 	}
 
 	log.Infoln("end:", time.Since(startTime))
+}
+
+// Close http请求关闭
+func (server *Server) Close() {
+	server.s.Close()
 }
 
 // NewServer 创建Http服务

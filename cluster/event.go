@@ -32,7 +32,6 @@ type EventManager struct {
 func (em *EventManager) Register(e *Event) {
 	em.mute.Lock()
 	defer em.mute.Unlock()
-
 	if m, ok := em.events[e.Name]; ok {
 		for _, i := range m {
 			if e == i {
@@ -82,7 +81,6 @@ func (em *EventManager) Trigger(e *Event) {
 	em.mute.RLock()
 	ev, ok := em.events[e.Name]
 	em.mute.RUnlock()
-
 	if !ok {
 		return
 	}

@@ -9,9 +9,10 @@ import (
 
 	"encoding/json"
 
-	"koala/helper"
 	"reflect"
 	"strings"
+
+	"github.com/doublemo/koala/helper"
 
 	"strconv"
 
@@ -119,7 +120,6 @@ func (nm *NodeManager) Register(n *Node) {
 	_, ok := nm.nodes[n.Name]
 	nm.nodes[n.Name] = n
 	nm.mute.Unlock()
-
 	if !ok {
 		nm.events.Trigger(&Event{
 			Name: EventNodeOnline,
