@@ -31,6 +31,7 @@ func kcpServe(c *cli.Context) {
 		Mtu:             c.Int("server.kcp.mtu"),
 		ClientHandler: func(conn net.Conn) {
 			knet.HandleClient(conn, c.Int("server.kcp.readdeadline"), c.Int("server.kcp.writedeadline"), func(b []byte) ([]byte, error) {
+
 				return nil, nil
 			})
 		},

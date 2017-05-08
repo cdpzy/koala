@@ -23,6 +23,7 @@ var (
 
 // Options 节点参数
 type Options struct {
+	LocalName   string   // 当前节点名称
 	Endpoints   []string // etcd集群地址
 	DialTimeout int      // etcd连接超时
 	ETCDUrl     string   // etcd服务监听地址
@@ -49,6 +50,7 @@ func New(o *Options) (*NodeManager, error) {
 	Nodes.EtcdClient = etcdClient
 	Nodes.EtcdURL = o.ETCDUrl
 	Nodes.Local = &Node{
+		Name:   o.LocalName,
 		Port:   defaultPort,
 		Params: make(map[string]string),
 		Status: NodeStatusClosed,

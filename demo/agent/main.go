@@ -8,12 +8,14 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/doublemo/koala/cluster"
+	"github.com/doublemo/koala/lua"
 	"github.com/doublemo/koala/svc"
 	cli "gopkg.in/urfave/cli.v2"
 	"gopkg.in/urfave/cli.v2/altsrc"
 )
 
 func main() {
+	defer lua.LStateShutdown()
 	app := &cli.App{
 		Name:    "Agent",
 		Usage:   "a agent server",
@@ -278,6 +280,7 @@ func Action(c *cli.Context) error {
 func start(c *cli.Context) error {
 	// 集群节点
 	cl, err := cluster.New(&cluster.Options{
+		LocalName:   c.String("server.name"),
 		Endpoints:   strings.Split(c.String("cluster.endpoints"), ","),
 		DialTimeout: c.Int("cluster.dialTimeout"),
 		ETCDUrl:     c.String("cluster.etcdurl"),
@@ -289,7 +292,6 @@ func start(c *cli.Context) error {
 	}
 
 	// 本地节点信息
-	cl.Local.Name = c.String("server.name")
 	cl.Local.Type = "agent"
 	cl.Local.Priority = c.Int("cluster.priority")
 	cl.Local.Status = cluster.NodeStatusOK
@@ -305,7 +307,7 @@ func start(c *cli.Context) error {
 		Name: cluster.EventNodeOnline,
 		Data: make(map[string]interface{}),
 		CallBack: func(e cluster.Event) {
-			fmt.Println("ONLINE", e.Node)
+			fmt.Println("Online", e.Node)
 		},
 	})
 
@@ -318,14 +320,10 @@ func start(c *cli.Context) error {
 	// TCP 服务启动
 	go tcpServe(c)
 
-	// 加入节点
-	cl.Join(cl.Local)
-
-	fmt.Println("started")
-	return nil
+	return cl.Join(cl.Local)
 }
 
 func stop(c *cli.Context) error {
-	fmt.Println("Stop;.....")
+	cluster.Nodes.Leave(cluster.Nodes.Local)
 	return nil
 }

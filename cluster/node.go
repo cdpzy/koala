@@ -129,6 +129,12 @@ func (nm *NodeManager) Register(n *Node) {
 	}
 }
 
+func (nm *NodeManager) RegisterNoTrigger(n *Node) {
+	nm.mute.Lock()
+	nm.nodes[n.Name] = n
+	nm.mute.Unlock()
+}
+
 // UnRegister 移除节点
 func (nm *NodeManager) UnRegister(nodeName string) {
 	nm.mute.Lock()
@@ -226,6 +232,12 @@ func (nm *NodeManager) Preload() {
 		nodeAttr := pathSplit[2]
 		nodeName := pathSplit[1]
 		nodeType := pathSplit[0]
+
+		// 过滤本地节点
+		if nodeName == nm.Local.Name {
+			continue
+		}
+
 		node := nm.FindNodeByName(nodeName)
 		if node == nil {
 			node = &Node{
@@ -308,7 +320,12 @@ func (nm *NodeManager) Watcher() {
 						}
 
 						node.Set(nodeAttr, string(ev.Kv.Value))
-						nm.Register(node)
+
+						if nodeAttr == "Heartbeater" {
+							nm.RegisterNoTrigger(node)
+						} else {
+							nm.Register(node)
+						}
 
 						nm.events.Trigger(&Event{
 							Name: EventNodeAttributeChanged,

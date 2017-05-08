@@ -50,6 +50,8 @@ type Client struct {
 	Params         map[string]interface{} //
 	in             chan []byte            //
 	pending        chan []byte            //
+	inputReadyed   chan struct{}          //
+	outputReadyed  chan struct{}          //
 	cache          []byte                 //
 	die            chan struct{}          // 会话关闭信号
 	conn           net.Conn               //
@@ -82,7 +84,7 @@ func (c *Client) input() {
 	c.ConnectTime = time.Now()
 	c.LastPacketTime = time.Now()
 	heartbeaterTimer := time.After(time.Minute)
-
+	close(c.inputReadyed)
 	for {
 		select {
 		case msg, ok := <-c.in:
@@ -126,6 +128,7 @@ func (c *Client) output() {
 	}()
 
 	log.Infoln("Client output readyed")
+	close(c.outputReadyed)
 	for {
 
 		select {
@@ -237,8 +240,13 @@ func NewClient(conn net.Conn) *Client {
 		c.IP = net.ParseIP(host)
 	}
 
+	c.inputReadyed = make(chan struct{})
 	go c.input()
+	<-c.inputReadyed
+
+	c.outputReadyed = make(chan struct{})
 	go c.output()
+	<-c.outputReadyed
 
 	log.WithFields(log.Fields{"host": host, "port": port}).Debug("new connection from")
 	return c
