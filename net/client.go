@@ -30,7 +30,7 @@ var (
 )
 
 // 路由类型方法
-type RouterFunc func([]byte) ([]byte, error)
+type RouterFunc func(*Client, []byte) ([]byte, error)
 
 // Client 客户端处理
 type Client struct {
@@ -156,7 +156,7 @@ func (c *Client) call(b []byte) []byte {
 		c.Decoder.XORKeyStream(b, b)
 	}
 
-	ret, err := c.RouteFunc(b)
+	ret, err := c.RouteFunc(c, b)
 	if err == ErrorKickedOut {
 		c.Flag |= FlagClientKickedOut
 		return nil
