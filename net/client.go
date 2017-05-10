@@ -60,7 +60,7 @@ type Client struct {
 
 // WriteIn 写入
 func (c *Client) WriteIn(b []byte) error {
-	if c.Flag&FlagClientKickedOut != 0 {
+	if c.Flag&FlagClientKickedOut != 0 || c.die == nil {
 		return ErrorKickedOut
 	}
 
