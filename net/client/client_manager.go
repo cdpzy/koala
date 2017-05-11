@@ -81,3 +81,7 @@ func RegisterAnonymous(c *Client) {
 func UnregisterAnonymous(id int64) {
 	_anonymous_clients.Unregister(id)
 }
+
+func AnonymousIterator(f func(int64, *Client) bool) {
+	_anonymous_clients.Iterator(f)
+}

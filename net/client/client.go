@@ -259,8 +259,11 @@ func HandleClient(conn net.Conn, readDeadline, writeDeadline int, route RouterFu
 	client := NewClient(conn)
 	client.ID = 0
 	client.RouteFunc = route
+
+	RegisterAnonymous(client)
 	defer func() {
 		client.Close()
+		UnregisterAnonymous(client.ID)
 		log.WithFields(log.Fields{"ID": client.ID, "IP": client.IP}).Debug("Client shutdown")
 	}()
 
