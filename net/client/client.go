@@ -1,4 +1,4 @@
-package net
+package client
 
 import (
 	"crypto/rc4"
@@ -8,9 +8,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/doublemo/koala/helper"
-
 	log "github.com/Sirupsen/logrus"
+	"github.com/doublemo/koala/helper"
 )
 
 // FlagClient 客户端状态

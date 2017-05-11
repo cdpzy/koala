@@ -1,11 +1,11 @@
-package net
+package client
 
 import (
 	"sync"
 )
 
 var (
-	_default_clients *ClientManager
+	_anonymous_clients *ClientManager
 )
 
 // ClientManager 客户端管理
@@ -43,9 +43,41 @@ func (cm *ClientManager) Count() (count int) {
 	return
 }
 
-func (cm *ClientManager) AutoInc() (id int64) {
+func (cm *ClientManager) NewAutoID() (id int64) {
 	cm.Lock()
-	id = cm.autoInc
+	id = cm.autoInc + 1
 	cm.Unlock()
 	return
+}
+
+func (cm *ClientManager) Iterator(f func(int64, *Client) bool) {
+	cm.RLock()
+	defer cm.RUnlock()
+	for k, v := range cm.records {
+		cm.RUnlock()
+		if b := f(k, v); !b {
+			break
+		}
+		cm.RLock()
+	}
+}
+
+func NewClientManager() *ClientManager {
+	return &ClientManager{records: make(map[int64]*Client)}
+}
+
+func init() {
+	_anonymous_clients = NewClientManager()
+}
+
+func GetAnonymous(id int64) *Client {
+	return _anonymous_clients.Get(id)
+}
+
+func RegisterAnonymous(c *Client) {
+	_anonymous_clients.Register(_anonymous_clients.NewAutoID(), c)
+}
+
+func UnregisterAnonymous(id int64) {
+	_anonymous_clients.Unregister(id)
 }
