@@ -19,6 +19,26 @@ func TestConcurrentAccess(t *testing.T) {
 
 	go func() {
 		for {
+			for i = 0; i < 10000; i++ {
+				c.Register(c.NewAutoID(), &Client{})
+			}
+
+			time.Sleep(time.Second * 1)
+		}
+	}()
+
+	go func() {
+		for {
+			for i = 0; i < 10000; i++ {
+				c.Register(c.NewAutoID(), &Client{})
+			}
+
+			time.Sleep(time.Second * 1)
+		}
+	}()
+
+	go func() {
+		for {
 			for i = 0; i <= 10000; i++ {
 				c.Unregister(i)
 			}

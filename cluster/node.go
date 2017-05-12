@@ -380,7 +380,10 @@ func (nm *NodeManager) ServiceInit() error {
 	defer nm.mute.Unlock()
 
 	for _, node := range nm.nodes {
-		if err := nm.serviceInit(node); err != nil {
+		nm.mute.Unlock()
+		err := nm.serviceInit(node)
+		nm.mute.Lock()
+		if err != nil {
 			return err
 		}
 	}

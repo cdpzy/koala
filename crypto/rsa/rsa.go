@@ -43,6 +43,7 @@ func RSADecrypt(data []byte, privkey string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	block, _ := pem.Decode(pkey)
 	if block == nil {
 		return nil, errors.New("private key error")

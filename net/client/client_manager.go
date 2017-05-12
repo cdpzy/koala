@@ -75,7 +75,8 @@ func GetAnonymous(id int64) *Client {
 }
 
 func RegisterAnonymous(c *Client) {
-	_anonymous_clients.Register(_anonymous_clients.NewAutoID(), c)
+	c.ID = _anonymous_clients.NewAutoID()
+	_anonymous_clients.Register(c.ID, c)
 }
 
 func UnregisterAnonymous(id int64) {
