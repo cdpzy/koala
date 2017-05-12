@@ -10,12 +10,17 @@ var (
 	_defautls_sm *SessionManager
 )
 
-type SessionManager struct {
-	sync.RWMutex
-	records map[string]*mgo.Session
+type Session struct {
+	Session *mgo.Session
+	Db      string
 }
 
-func (sm *SessionManager) Register(k string, s *mgo.Session) {
+type SessionManager struct {
+	sync.RWMutex
+	records map[string]*Session
+}
+
+func (sm *SessionManager) Register(k string, s *Session) {
 	sm.Lock()
 	sm.records[k] = s
 	sm.Unlock()
@@ -27,14 +32,14 @@ func (sm *SessionManager) Unregister(k string) {
 
 	if m, ok := sm.records[k]; ok {
 		sm.Unlock()
-		m.Close()
+		m.Session.Close()
 		sm.Lock()
 	}
 
 	delete(sm.records, k)
 }
 
-func (sm *SessionManager) Get(k string) (s *mgo.Session) {
+func (sm *SessionManager) Get(k string) (s *Session) {
 	sm.RLock()
 	s = sm.records[k]
 	sm.RUnlock()
@@ -42,31 +47,50 @@ func (sm *SessionManager) Get(k string) (s *mgo.Session) {
 }
 
 func NewSessionManager() *SessionManager {
-	return &SessionManager{records: make(map[string]*mgo.Session)}
+	return &SessionManager{records: make(map[string]*Session)}
 }
 
 func init() {
 	_defautls_sm = NewSessionManager()
 }
 
-func Create(key, addr, name, user, pass string) (*mgo.Session, error) {
+func Create(key, addr, name, user, pass string) (*Session, error) {
 	session, err := mgo.Dial(addr)
 	if err != nil {
 		return nil, err
 	}
 
-	_defautls_sm.Register(key, session)
-	return session, nil
+	session.SetMode(mgo.Monotonic, true)
+	s := &Session{Session: session, Db: name}
+	_defautls_sm.Register(key, s)
+	return s, nil
 }
 
-func Get(key string) *mgo.Session {
+func Get(key string) *Session {
 	s := _defautls_sm.Get(key)
 	if s == nil {
 		return nil
 	}
-	return s.Copy()
+	return s
 }
 
 func Close(key string) {
 	_defautls_sm.Unregister(key)
+}
+
+func GetCopySession(key string) *mgo.Session {
+	s := Get(key)
+	if s == nil {
+		return nil
+	}
+
+	return s.Session.Copy()
+}
+
+func GetDb(key string) string {
+	s := Get(key)
+	if s == nil {
+		return ""
+	}
+	return s.Db
 }
