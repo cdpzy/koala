@@ -468,7 +468,9 @@ func (nm *NodeManager) All() []*Node {
 	nodes := make([]*Node, 0)
 
 	for _, n := range nm.nodes {
+		nm.mute.RUnlock()
 		nodes = append(nodes, n)
+		nm.mute.RLock()
 	}
 
 	return nodes

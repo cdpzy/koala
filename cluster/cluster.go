@@ -155,6 +155,10 @@ func FindByType(t string) []*Node {
 	nodes := Nodes.All()
 	q := make([]*Node, 0)
 	for _, n := range nodes {
+		if n.Type != t {
+			continue
+		}
+
 		q = append(q, n)
 	}
 

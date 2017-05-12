@@ -31,11 +31,17 @@ var (
 // 路由类型方法
 type RouterFunc func(*Client, []byte) ([]byte, error)
 
+// 客户端关闭前处理
+type BeforeFunc func(*Client)
+
+// 客户端关闭后处理
+type AfertFunc func(*Client)
+
 // Client 客户端处理
 type Client struct {
 	IP             net.IP                 // 客户端IP
 	Port           string                 //
-	ID             int64                  // 客户端ID
+	ID             string                 // 客户端ID
 	Encoder        *rc4.Cipher            // 加密器
 	Decoder        *rc4.Cipher            // 解密器
 	Flag           FlagClient             // 会话标记
@@ -55,6 +61,8 @@ type Client struct {
 	die            chan struct{}          // 会话关闭信号
 	conn           net.Conn               //
 	RouteFunc      RouterFunc             //
+	OnBeforeClose  map[string]BeforeFunc  //
+	OnAfertClose   map[string]AfertFunc   //
 }
 
 // WriteIn 写入
@@ -211,6 +219,12 @@ func (c *Client) send(b []byte) bool {
 
 // Close //
 func (c *Client) Close() {
+	if len(c.OnBeforeClose) > 0 {
+		for _, f := range c.OnBeforeClose {
+			f(c)
+		}
+	}
+
 	if c.die == nil {
 		return
 	}
@@ -218,19 +232,27 @@ func (c *Client) Close() {
 	close(c.die)
 	c.Flag |= FlagClientKickedOut
 	c.die = nil
+
+	if len(c.OnAfertClose) > 0 {
+		for _, f := range c.OnAfertClose {
+			f(c)
+		}
+	}
 }
 
 // NewClient 创建客户端
 func NewClient(conn net.Conn) *Client {
 	c := &Client{
-		Params:   make(map[string]interface{}),
-		in:       make(chan []byte),
-		pending:  make(chan []byte),
-		cache:    make([]byte, 65537),
-		die:      make(chan struct{}),
-		conn:     conn,
-		CreateAt: time.Now(),
-		RpmLimit: 300,
+		Params:        make(map[string]interface{}),
+		in:            make(chan []byte),
+		pending:       make(chan []byte),
+		cache:         make([]byte, 65537),
+		die:           make(chan struct{}),
+		conn:          conn,
+		CreateAt:      time.Now(),
+		RpmLimit:      300,
+		OnBeforeClose: make(map[string]BeforeFunc),
+		OnAfertClose:  make(map[string]AfertFunc),
 	}
 
 	host, port, err := net.SplitHostPort(conn.RemoteAddr().String())
@@ -257,13 +279,12 @@ func HandleClient(conn net.Conn, readDeadline, writeDeadline int, route RouterFu
 
 	header := make([]byte, 2)
 	client := NewClient(conn)
-	client.ID = 0
 	client.RouteFunc = route
 
-	RegisterAnonymous(client)
+	Register(client)
 	defer func() {
 		client.Close()
-		UnregisterAnonymous(client.ID)
+		Unregister(client.ID)
 		log.WithFields(log.Fields{"ID": client.ID, "IP": client.IP}).Debug("Client shutdown")
 	}()
 
