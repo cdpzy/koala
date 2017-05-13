@@ -67,10 +67,7 @@ func New(o *Options) (*NodeManager, error) {
 	Nodes.Watcher()
 	Nodes.Preload()
 
-	if err = Nodes.ServiceInit(); err != nil {
-		return nil, err
-	}
-
+	Nodes.ServiceInit()
 	Nodes.heartbeater()
 	return Nodes, nil
 }

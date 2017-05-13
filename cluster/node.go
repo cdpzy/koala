@@ -348,6 +348,7 @@ func (nm *NodeManager) Watcher() {
 										return
 									}
 
+									log.Warningf("Connect to %s[%s:%d] failed", node.Name, node.Addr, node.Port)
 									select {
 									case <-ticker.C:
 									}
@@ -375,20 +376,19 @@ func (nm *NodeManager) CloseWatcher() {
 }
 
 // ServiceInit 连接服务
-func (nm *NodeManager) ServiceInit() error {
+func (nm *NodeManager) ServiceInit() {
 	nm.mute.Lock()
 	defer nm.mute.Unlock()
 
 	for _, node := range nm.nodes {
 		nm.mute.Unlock()
 		err := nm.serviceInit(node)
-		nm.mute.Lock()
 		if err != nil {
-			return err
+			log.Warningf("Connect to %s[%s:%d] failed", node.Name, node.Addr, node.Port)
 		}
-	}
 
-	return nil
+		nm.mute.Lock()
+	}
 }
 
 // serviceInit 服务连接
