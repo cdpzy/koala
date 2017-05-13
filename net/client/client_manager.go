@@ -56,10 +56,11 @@ func (cm *ClientManager) Iterator(f func(string, *Client) bool) {
 	defer cm.RUnlock()
 	for k, v := range cm.records {
 		cm.RUnlock()
-		if b := f(k, v); !b {
+		b := f(k, v)
+		cm.RLock()
+		if !b {
 			break
 		}
-		cm.RLock()
 	}
 }
 
