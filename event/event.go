@@ -19,19 +19,19 @@ type Event interface {
 
 // DefaultEvent 默认事件
 type DefaultEvent struct {
-	name              string                 //
-	callback          CallBack               //
+	EventName         string                 //
+	EventCallback     CallBack               //
 	isStopPropagation bool                   //
-	data              interface{}            //
-	params            map[string]interface{} //
+	EventData         interface{}            //
+	EventParams       map[string]interface{} //
 }
 
 func (e *DefaultEvent) Name() string {
-	return e.name
+	return e.EventName
 }
 
 func (e *DefaultEvent) CallBack() CallBack {
-	return e.callback
+	return e.EventCallback
 }
 
 func (e *DefaultEvent) StopPropagation() {
@@ -43,25 +43,25 @@ func (e *DefaultEvent) IsStopPropagation() bool {
 }
 
 func (e *DefaultEvent) SetData(data interface{}) {
-	e.data = data
+	e.EventData = data
 }
 
 func (e *DefaultEvent) GetData() interface{} {
-	return e.data
+	return e.EventData
 }
 
 func (e *DefaultEvent) SetParam(k string, v interface{}) {
-	e.params[k] = v
+	e.EventParams[k] = v
 }
 
 func (e *DefaultEvent) GetParam(k string) interface{} {
-	return e.params[k]
+	return e.EventParams[k]
 }
 
 func (e *DefaultEvent) SetParams(p map[string]interface{}) {
-	e.params = p
+	e.EventParams = p
 }
 
 func (e *DefaultEvent) GetParams() map[string]interface{} {
-	return e.params
+	return e.EventParams
 }
