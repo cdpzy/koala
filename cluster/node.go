@@ -173,10 +173,10 @@ func (nm *NodeManager) Join(n *Node) error {
 	}
 
 	ops := []client.Op{
-		client.OpPut(path+"/Priority", fmt.Sprint(n.Priority)),
-		client.OpPut(path+"/Type", n.Type),
 		client.OpPut(path+"/Addr", n.Addr.String()),
 		client.OpPut(path+"/Port", fmt.Sprint(n.Port)),
+		client.OpPut(path+"/Priority", fmt.Sprint(n.Priority)),
+		client.OpPut(path+"/Type", n.Type),
 		client.OpPut(path+"/Status", fmt.Sprint(n.Status)),
 		client.OpPut(path+"/Params", string(params)),
 		client.OpPut(path+"/Heartbeater", fmt.Sprint(time.Now().Unix())),
@@ -333,7 +333,14 @@ func (nm *NodeManager) Watcher() {
 							Data: map[string]interface{}{"attribute": nodeAttr, "attributeVal": string(ev.Kv.Value)},
 						})
 
-						if node.GRPCConn == nil && !node.connecting && nm.Local != nil && node.Name != nm.Local.Name {
+						if node.GRPCConn == nil &&
+							!node.connecting &&
+							nm.Local != nil &&
+							node.Name != nm.Local.Name &&
+							node.Status == NodeStatusOK &&
+							node.Addr != nil &&
+							node.Port > 0 {
+
 							node.connecting = true
 							go func() {
 								ticker := time.NewTicker(5 * time.Second)
