@@ -87,9 +87,12 @@ func (em *EventManager) Trigger(e Event) {
 	}
 
 	for _, ev := range events {
-		ev.CallBack()(e)
-		if ev.IsStopPropagation() {
-			break
+		f := ev.CallBack()
+		if f != nil {
+			ev.CallBack()(e)
+			if ev.IsStopPropagation() {
+				break
+			}
 		}
 	}
 }
