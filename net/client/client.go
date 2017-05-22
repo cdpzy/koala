@@ -185,7 +185,7 @@ func (c *Client) Send(b []byte) error {
 		return nil
 	}
 
-	log.Debug("Send :", b)
+	log.Debug("Send :", b, c.Flag&FlagClientEncrypt != 0, c.Encoder)
 
 	if c.Flag&FlagClientEncrypt != 0 {
 		c.Encoder.XORKeyStream(b, b)
@@ -209,7 +209,7 @@ func (c *Client) send(b []byte) bool {
 	size := len(b)
 	binary.BigEndian.PutUint16(c.cache, uint16(size))
 	copy(c.cache[2:], b)
-	log.Debug("Send To Client :", b)
+	log.Debug("Send To Client :", b, c.cache[:size+2])
 	n, err := c.conn.Write(c.cache[:size+2])
 	if err != nil {
 		log.Warningf("Error send reply data, bytes: %v reason: %v", n, err)
@@ -247,7 +247,7 @@ func NewClient(conn net.Conn) *Client {
 		Params:        make(map[string]interface{}),
 		in:            make(chan []byte),
 		pending:       make(chan []byte),
-		cache:         make([]byte, 65537),
+		cache:         make([]byte, 65535),
 		die:           make(chan struct{}),
 		conn:          conn,
 		CreateAt:      time.Now(),

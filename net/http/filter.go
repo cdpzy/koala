@@ -45,6 +45,7 @@ func RouterFilter(r *Router, c *KoalaController, filterChain []Filter) {
 
 	if err := c.SetAction(route.Controller, route.Action); err != nil {
 		c.SetResult(c.RenderError(http.StatusInternalServerError, fmt.Errorf("500 SERVER ERROR: %s", err)))
+		return
 	}
 
 	c.Params.Values = make(url.Values)

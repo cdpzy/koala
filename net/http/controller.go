@@ -96,7 +96,6 @@ func (controller *KoalaController) SetAction(controllerName, methodName string) 
 	controller.Name = controller.Type.Type.Name()
 	controller.MethodName = controller.MethodType.Name
 	controller.Action = controller.Name + "." + controller.MethodName
-
 	appControllerPtr := reflect.New(controller.Type.Type)
 	appController := appControllerPtr.Elem()
 	cValue := reflect.ValueOf(controller)
