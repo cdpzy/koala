@@ -185,7 +185,7 @@ func (c *Client) Send(b []byte) error {
 		return nil
 	}
 
-	log.Debug("Send :", b, c.Flag&FlagClientEncrypt != 0, c.Encoder)
+	log.Debug("Send :", b, c.Flag&FlagClientEncrypt != 0)
 
 	if c.Flag&FlagClientEncrypt != 0 {
 		c.Encoder.XORKeyStream(b, b)
@@ -194,13 +194,14 @@ func (c *Client) Send(b []byte) error {
 		c.Flag |= FlagClientEncrypt
 	}
 
-	select {
-	case c.pending <- b:
-	default:
-		log.WithFields(log.Fields{"ID": c.ID, "ip": c.IP}).Warning("pending full")
-		return ErrorChanFull
-	}
+	// select {
+	// case c.pending <- b:
+	// default:
+	// 	log.WithFields(log.Fields{"ID": c.ID, "ip": c.IP}).Warning("pending full")
+	// 	return ErrorChanFull
+	// }
 
+	c.pending <- b
 	return nil
 }
 
