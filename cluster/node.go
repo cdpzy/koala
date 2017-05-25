@@ -327,6 +327,10 @@ func (nm *NodeManager) Watcher() {
 							nm.Register(node)
 						}
 
+						if nodeAttr == "Addr" {
+							node.GRPCConn = nil
+						}
+
 						nm.events.Trigger(&Event{
 							Name: EventNodeAttributeChanged,
 							Node: node,
