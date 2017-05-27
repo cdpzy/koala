@@ -275,7 +275,10 @@ func (nm *NodeManager) Watcher() {
 
 				for _, ev := range resp.Events {
 					key := string(ev.Kv.Key)
-					log.Debug("Watcher:", key, string(ev.Kv.Value), " - ", ev.Type)
+					if !strings.HasSuffix(key, "/Heartbeater") {
+						log.Debug("Watcher:", key, string(ev.Kv.Value), " - ", ev.Type)
+					}
+
 					if !strings.HasPrefix(key, nm.EtcdURL) || len(key) < 1 {
 						continue
 					}
