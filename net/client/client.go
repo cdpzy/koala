@@ -194,14 +194,13 @@ func (c *Client) Send(b []byte) error {
 		c.Flag |= FlagClientEncrypt
 	}
 
-	// select {
-	// case c.pending <- b:
-	// default:
-	// 	log.WithFields(log.Fields{"ID": c.ID, "ip": c.IP}).Warning("pending full")
-	// 	return ErrorChanFull
-	// }
+	select {
+	case c.pending <- b:
+	default:
+		log.WithFields(log.Fields{"ID": c.ID, "ip": c.IP}).Warning("pending full")
+		return ErrorChanFull
+	}
 
-	c.pending <- b
 	return nil
 }
 
@@ -243,18 +242,19 @@ func (c *Client) Close() {
 }
 
 // NewClient 创建客户端
-func NewClient(conn net.Conn) *Client {
+func NewClient(conn net.Conn, op *Config) *Client {
 	c := &Client{
 		Params:        make(map[string]interface{}),
 		in:            make(chan []byte),
-		pending:       make(chan []byte),
+		pending:       make(chan []byte, op.PendingSize),
 		cache:         make([]byte, 65535),
 		die:           make(chan struct{}),
 		conn:          conn,
 		CreateAt:      time.Now(),
-		RpmLimit:      300,
-		OnBeforeClose: make(map[string]BeforeFunc),
-		OnAfertClose:  make(map[string]AfertFunc),
+		RpmLimit:      op.RpmLimit,
+		OnBeforeClose: op.OnBeforeClose,
+		OnAfertClose:  op.OnAfertClose,
+		RouteFunc:     op.RouteFunc,
 	}
 
 	host, port, err := net.SplitHostPort(conn.RemoteAddr().String())
@@ -276,12 +276,11 @@ func NewClient(conn net.Conn) *Client {
 }
 
 // HandleClient 默认连接处理
-func HandleClient(conn net.Conn, readDeadline, writeDeadline int, route RouterFunc) {
+func HandleClient(conn net.Conn, readDeadline, writeDeadline int, op *Config) {
 	defer helper.RecoverStack()
 
 	header := make([]byte, 2)
-	client := NewClient(conn)
-	client.RouteFunc = route
+	client := NewClient(conn, op)
 
 	Register(client)
 	defer func() {
