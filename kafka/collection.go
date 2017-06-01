@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"time"
 
@@ -19,7 +20,7 @@ type C struct {
 	Data       interface{} `json:"data"`
 }
 
-func (c *C) Encode() []byte {
+func (c *C) Encode() sarama.ByteEncoder {
 	str, err := json.Marshal(c)
 	if err != nil {
 		return nil
@@ -30,6 +31,10 @@ func (c *C) Encode() []byte {
 
 func (c *C) Decode(b []byte) error {
 	return json.Unmarshal(b, c)
+}
+
+func (c *C) KafkaKey() sarama.StringEncoder {
+	return sarama.StringEncoder(fmt.Sprintf("%v-%v-%v-%v-%v", c.Type, c.InstanceID, c.Table, c.Host, c.Key))
 }
 
 func NewC() *C {
