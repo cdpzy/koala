@@ -34,7 +34,7 @@ func (c *C) Decode(b []byte) error {
 }
 
 func (c *C) KafkaKey() sarama.StringEncoder {
-	return sarama.StringEncoder(fmt.Sprintf("%v-%v-%v-%v-%v", c.Type, c.InstanceID, c.Table, c.Host, c.Key))
+	return sarama.StringEncoder(fmt.Sprintf("%v_%v", c.Host, c.Key))
 }
 
 func NewC() *C {
