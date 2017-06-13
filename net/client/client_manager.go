@@ -76,9 +76,17 @@ func Get(id string) *Client {
 	return _default_clients.Get(id)
 }
 
+func Count() int {
+	return _default_clients.Count()
+}
+
 func Register(c *Client) {
 	c.ID = _default_clients.NewAutoID()
 	_default_clients.Register(c.ID, c)
+}
+
+func RegisterID(id string, c *Client) {
+	_default_clients.Register(id, c)
 }
 
 func Unregister(id string) {

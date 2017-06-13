@@ -160,6 +160,30 @@ func (controller *KoalaController) RenderBinary(memfile io.Reader, filename stri
 	}
 }
 
+// RenderJon JSON渲染
+func (controller *KoalaController) RenderJSON(o interface{}, pretty bool) Result {
+	controller.setStatusIfNil(http.StatusOK)
+	return RenderJSONResult{o, "", pretty}
+}
+
+// RenderJSONP JSONP
+func (controller *KoalaController) RenderJSONP(callback string, o interface{}, pretty bool) Result {
+	controller.setStatusIfNil(http.StatusOK)
+	return RenderJSONResult{o, callback, pretty}
+}
+
+// RenderJSONText JSONText
+func (controller *KoalaController) RenderJSONText(o string) Result {
+	controller.setStatusIfNil(http.StatusOK)
+	return RenderJSONTextResult{o, ""}
+}
+
+// RenderJSONPText JSONText
+func (controller *KoalaController) RenderJSONPText(callback string, o string) Result {
+	controller.setStatusIfNil(http.StatusOK)
+	return RenderJSONTextResult{o, callback}
+}
+
 // NewKoalaController 创建控制器
 func NewKoalaController(req *Request, resp *Response) *KoalaController {
 	return &KoalaController{Req: req, Resp: resp, Params: &Params{}}

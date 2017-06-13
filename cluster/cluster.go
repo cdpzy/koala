@@ -121,6 +121,7 @@ func GetServiceByRandom(typeName string) *Node {
 		return nil
 	}
 
+	ShuffleNode(q)
 	return q[rand.Intn(len(q))]
 }
 
@@ -164,4 +165,11 @@ func FindByType(t string) []*Node {
 	}
 
 	return q
+}
+
+func ShuffleNode(a []*Node) {
+	for i := range a {
+		j := rand.Intn(i + 1)
+		a[i], a[j] = a[j], a[i]
+	}
 }

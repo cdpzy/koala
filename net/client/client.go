@@ -270,8 +270,6 @@ func NewClient(conn net.Conn, op *Config) *Client {
 	c.outputReadyed = make(chan struct{})
 	go c.output()
 	<-c.outputReadyed
-
-	log.WithFields(log.Fields{"host": host, "port": port}).Debug("new connection from")
 	return c
 }
 
@@ -286,8 +284,10 @@ func HandleClient(conn net.Conn, readDeadline, writeDeadline int, op *Config) {
 	defer func() {
 		client.Close()
 		Unregister(client.ID)
-		log.WithFields(log.Fields{"ID": client.ID, "IP": client.IP}).Debug("Client shutdown")
+		log.WithFields(log.Fields{"ID": client.ID, "IP": client.IP, "ONLINE:": Count()}).Debug("Client shutdown")
 	}()
+
+	log.WithFields(log.Fields{"host": client.IP.String(), "port": client.Port, "ONLINE:": Count()}).Debug("new connection from")
 
 	for {
 		conn.SetReadDeadline(time.Now().Add(time.Duration(readDeadline) * time.Second))
