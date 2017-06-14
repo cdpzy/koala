@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	"log"
 
 	"golang.org/x/net/websocket"
 )
@@ -45,8 +45,7 @@ func (server *Server) Serve() error {
 		return err
 	}
 
-	log.Infoln("HTTP listening on:", server.s.Addr)
-
+	log.Println("HTTP listening on:", server.s.Addr)
 	return server.s.Serve(listener)
 }
 
@@ -91,7 +90,7 @@ func (server *Server) handleRequest(w http.ResponseWriter, r *http.Request, ws *
 		w.Close()
 	}
 
-	log.Infoln("end:", time.Since(startTime))
+	log.Println(req.URL.String(), " -- ", time.Since(startTime))
 }
 
 // Close http请求关闭

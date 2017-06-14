@@ -309,6 +309,7 @@ func (nm *NodeManager) Watcher() {
 							node.GRPCConn.Close()
 						}
 
+						node.connecting = false
 						nm.UnRegister(node.Name)
 
 					case client.EventTypePut:
@@ -323,15 +324,16 @@ func (nm *NodeManager) Watcher() {
 						}
 
 						node.Set(nodeAttr, string(ev.Kv.Value))
+						if nodeAttr == "Addr" {
+							node.GRPCConn = nil
+							node.Status = NodeStatusClosed
+							nm.UnRegister(node.Name)
+						}
 
 						if nodeAttr == "Heartbeater" {
 							nm.RegisterNoTrigger(node)
 						} else {
 							nm.Register(node)
-						}
-
-						if nodeAttr == "Addr" {
-							node.GRPCConn = nil
 						}
 
 						nm.events.Trigger(&Event{
@@ -365,6 +367,11 @@ func (nm *NodeManager) Watcher() {
 									log.Warningf("Connect to %s[%s:%d] failed", node.Name, node.Addr, node.Port)
 									select {
 									case <-ticker.C:
+									}
+
+									if node.Status != NodeStatusOK {
+										node.connecting = false
+										return
 									}
 								}
 							}()
@@ -450,7 +457,7 @@ func (nm *NodeManager) heartbeater() {
 				nodes := nm.All()
 				for _, n := range nodes {
 					s := time.Now().Sub(time.Unix(n.Heartbeater, 0)).Seconds()
-					if s > 10 {
+					if s > 20 {
 						nm.UnRegister(n.Name)
 					}
 				}
