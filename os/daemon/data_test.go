@@ -13,7 +13,7 @@ func TestData(t *testing.T) {
 		NodeType: "agent",
 	}
 
-	x := d.Encode()
+	x, _ := d.Encode()
 	fmt.Println("x:", x)
 	xd := &Data{}
 	xd.Decode(x)

@@ -2,9 +2,15 @@ package daemon
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
+)
+
+// 命令定义
+const (
+	CommandSetRestart int16 = iota + 1 // 要求重启
 )
 
 // DaemonBody 消息结构
@@ -26,7 +32,6 @@ func (d *Daemon) Init() error {
 	if err := d.update(); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -40,7 +45,11 @@ func (d *Daemon) Serve() {
 				return
 			}
 
-			fmt.Println("OKK", frame)
+			switch frame.Command {
+			case CommandSetRestart:
+				d.Data.Command = CommandSetRestart
+				d.update()
+			}
 
 		case <-timer:
 			timer = time.After(time.Second * d.UpdateTime)
@@ -53,6 +62,7 @@ func (d *Daemon) Serve() {
 }
 
 func (d *Daemon) update() error {
+	d.Data.DateUinx = time.Now().Unix()
 	path, err := filepath.Abs(d.DataDir)
 	if err != nil {
 		return err
@@ -73,10 +83,39 @@ func (d *Daemon) update() error {
 	}
 
 	defer f.Close()
-	_, err = f.Write(d.Data.Encode())
+	b, err := d.Data.Encode()
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(b)
 	return err
 }
 
+func (d *Daemon) Send(m DaemonBody) {
+	select {
+	case d.pending <- m:
+	default:
+		log.Println("Daemon pending chan full.")
+	}
+}
+
+func (d *Daemon) Close() {
+	if d.die == nil {
+		return
+	}
+
+	close(d.die)
+}
+
 func (d *Daemon) name() string {
-	return fmt.Sprintf("%s-%d", d.Data.NodeName, d.Data.Pid)
+	return fmt.Sprintf("%s", d.Data.NodeName)
+}
+
+func NewDaemon(op *Config) *Daemon {
+	return &Daemon{
+		Data:       &op.Data,
+		DataDir:    op.DataDir,
+		UpdateTime: time.Duration(op.UpdateTime),
+		pending:    make(chan DaemonBody, 1),
+	}
 }
