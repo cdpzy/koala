@@ -25,6 +25,7 @@ type Daemon struct {
 	UpdateTime time.Duration   //
 	pending    chan DaemonBody // 消息输入通道
 	die        chan struct{}   //
+	done       chan bool       //
 }
 
 // Init 初始化
@@ -36,6 +37,11 @@ func (d *Daemon) Init() error {
 }
 
 func (d *Daemon) Serve() {
+	defer func() {
+		d.remove()
+		fmt.Println("Daemon Closed")
+	}()
+
 	d.die = make(chan struct{})
 	timer := time.After(time.Second * d.UpdateTime)
 	for {
@@ -89,6 +95,21 @@ func (d *Daemon) update() error {
 	}
 	_, err = f.Write(b)
 	return err
+}
+
+func (d *Daemon) remove() error {
+	fpath, err := filepath.Abs(d.DataDir + "/" + d.name())
+	fmt.Println("remove path:", fpath)
+	if err != nil {
+		return err
+	}
+
+	if f, err := os.Stat(fpath); !os.IsNotExist(err) && !f.IsDir() {
+		os.Remove(fpath)
+	}
+
+	fmt.Println("remove path:", fpath)
+	return nil
 }
 
 func (d *Daemon) Send(m DaemonBody) {
