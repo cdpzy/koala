@@ -59,6 +59,7 @@ type Client struct {
 	outputReadyed  chan struct{}          //
 	cache          []byte                 //
 	die            chan struct{}          // 会话关闭信号
+	closed         chan struct{}          // 已关闭, 要求退出
 	conn           net.Conn               //
 	RouteFunc      RouterFunc             //
 	OnBeforeClose  map[string]BeforeFunc  //
@@ -73,6 +74,8 @@ func (c *Client) WriteIn(b []byte) error {
 
 	select {
 	case c.in <- b:
+	case <-c.closed:
+		return ErrorKickedOut
 	default:
 		return ErrorChanFull
 	}
@@ -232,8 +235,6 @@ func (c *Client) Close() {
 
 	close(c.die)
 	c.Flag |= FlagClientKickedOut
-	c.die = nil
-
 	if len(c.OnAfertClose) > 0 {
 		for _, f := range c.OnAfertClose {
 			f(c)
@@ -255,6 +256,7 @@ func NewClient(conn net.Conn, op *Config) *Client {
 		OnBeforeClose: op.OnBeforeClose,
 		OnAfertClose:  op.OnAfertClose,
 		RouteFunc:     op.RouteFunc,
+		closed:        op.Closed,
 	}
 
 	host, port, err := net.SplitHostPort(conn.RemoteAddr().String())

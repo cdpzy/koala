@@ -10,7 +10,7 @@ import (
 )
 
 // HandlerFunc 处理连接
-type HandlerFunc func(net.Conn)
+type HandlerFunc func(net.Conn, chan struct{})
 
 // TCPServerOptions TCP服务器配置
 type TCPServerOptions struct {
@@ -28,6 +28,7 @@ type TCPServer struct {
 	ClientHandler   HandlerFunc      //
 	wg              sync.WaitGroup   //
 	listener        *net.TCPListener //
+	closed          chan struct{}    //
 }
 
 // Serve 开启服务
@@ -42,12 +43,19 @@ func (s *TCPServer) Serve() error {
 		return err
 	}
 
+	s.closed = make(chan struct{})
+	defer func() {
+		if s.listener != nil {
+			s.listener.Close()
+		}
+		close(s.closed)
+	}()
+
 	log.Infoln("TCP listening on:", s.listener.Addr())
 	for {
 		conn, err := s.listener.AcceptTCP()
 		if err != nil {
-			log.Println("TCP accept failed:", err)
-			continue
+			return err
 		}
 
 		conn.SetReadBuffer(s.ReadBufferSize)
@@ -65,7 +73,17 @@ func (s *TCPServer) handle(conn net.Conn) {
 		conn.Close()
 	}()
 
-	s.ClientHandler(conn)
+	s.ClientHandler(conn, s.closed)
+}
+
+func (s *TCPServer) Close() {
+	if s.listener != nil {
+		lis := s.listener
+		s.listener = nil
+		lis.Close()
+	}
+
+	s.wg.Wait()
 }
 
 // NewTCPServer 创建TCP服务器

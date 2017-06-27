@@ -7,6 +7,7 @@ type Config struct {
 	OnBeforeClose map[string]BeforeFunc // 客户端关闭以前事件处理
 	OnAfertClose  map[string]AfertFunc  // 客户端关闭以后事件处理
 	PendingSize   int                   // 等待通道缓冲队列大小
+	Closed        chan struct{}         //
 }
 
 // NewConfig 配置

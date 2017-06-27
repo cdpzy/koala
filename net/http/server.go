@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"context"
 	"log"
 
 	"golang.org/x/net/websocket"
@@ -96,6 +97,12 @@ func (server *Server) handleRequest(w http.ResponseWriter, r *http.Request, ws *
 // Close http请求关闭
 func (server *Server) Close() {
 	server.s.Close()
+}
+
+func (server *Server) Stop() {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	server.s.Shutdown(ctx)
 }
 
 // NewServer 创建Http服务

@@ -2,6 +2,7 @@ package net
 
 import (
 	"net"
+	"sync"
 
 	"github.com/doublemo/koala/helper"
 
@@ -27,19 +28,21 @@ type KCPServerOptions struct {
 
 // KCPServer ..
 type KCPServer struct {
-	Addr            string       //
-	ReadBufferSize  int          //
-	WriteBufferSize int          //
-	Dscp            int          //
-	Sndwnd          int          //
-	Rcvwnd          int          //
-	Nodelay         int          //
-	Interval        int          //
-	Resend          int          //
-	Nc              int          //
-	Mtu             int          //
-	ClientHandler   HandlerFunc  //
-	listener        net.Listener //
+	Addr            string         //
+	ReadBufferSize  int            //
+	WriteBufferSize int            //
+	Dscp            int            //
+	Sndwnd          int            //
+	Rcvwnd          int            //
+	Nodelay         int            //
+	Interval        int            //
+	Resend          int            //
+	Nc              int            //
+	Mtu             int            //
+	ClientHandler   HandlerFunc    //
+	listener        net.Listener   //
+	closed          chan struct{}  //
+	wg              sync.WaitGroup //
 }
 
 // Serve 启动服务
@@ -49,6 +52,15 @@ func (s *KCPServer) Serve() error {
 	if err != nil {
 		return err
 	}
+
+	s.closed = make(chan struct{})
+	defer func() {
+		if s.listener != nil {
+			s.listener.Close()
+		}
+
+		close(s.closed)
+	}()
 
 	lis := s.listener.(*kcp.Listener)
 	log.Infoln("KCP listening on:", s.listener.Addr())
@@ -68,8 +80,7 @@ func (s *KCPServer) Serve() error {
 	for {
 		conn, err := lis.AcceptKCP()
 		if err != nil {
-			log.Warningln("accept failed:", err)
-			continue
+			return err
 		}
 
 		conn.SetWindowSize(s.Sndwnd, s.Rcvwnd)
@@ -77,18 +88,30 @@ func (s *KCPServer) Serve() error {
 		conn.SetStreamMode(true)
 		conn.SetMtu(s.Mtu)
 
+		s.wg.Add(1)
 		go s.handle(conn)
 	}
 }
 
 // handle 处理
 func (s *KCPServer) handle(conn net.Conn) {
+	defer s.wg.Done()
 	defer func() {
 		helper.RecoverStack()
 		conn.Close()
 	}()
 
-	s.ClientHandler(conn)
+	s.ClientHandler(conn, s.closed)
+}
+
+func (s *KCPServer) Close() {
+	if s.listener != nil {
+		lis := s.listener
+		s.listener = nil
+		lis.Close()
+	}
+
+	s.wg.Wait()
 }
 
 // NewKCPServer new
