@@ -39,31 +39,31 @@ type AfertFunc func(*Client)
 
 // Client 客户端处理
 type Client struct {
-	IP             net.IP                 // 客户端IP
-	Port           string                 //
-	ID             string                 // 客户端ID
-	Encoder        *rc4.Cipher            // 加密器
-	Decoder        *rc4.Cipher            // 解密器
-	Flag           FlagClient             // 会话标记
-	ConnectTime    time.Time              // TCP链接建立时间
-	PacketTime     time.Time              // 当前包的到达时间
-	LastPacketTime time.Time              // 前一个包到达时间
-	CreateAt       time.Time              // 客户端连接时间
-	RpmLimit       int                    // 客户发包控制
-	PacketCount    int                    // 对收到的包进行计数，避免恶意发包
-	PacketCountRPM int                    //
-	Params         map[string]interface{} //
-	in             chan []byte            //
-	pending        chan []byte            //
-	inputReadyed   chan struct{}          //
-	outputReadyed  chan struct{}          //
-	cache          []byte                 //
-	die            chan struct{}          // 会话关闭信号
-	closed         chan struct{}          // 已关闭, 要求退出
-	conn           net.Conn               //
-	RouteFunc      RouterFunc             //
-	OnBeforeClose  map[string]BeforeFunc  //
-	OnAfertClose   map[string]AfertFunc   //
+	IP             net.IP        // 客户端IP
+	Port           string        //
+	ID             string        // 客户端ID
+	Encoder        *rc4.Cipher   // 加密器
+	Decoder        *rc4.Cipher   // 解密器
+	Flag           FlagClient    // 会话标记
+	ConnectTime    time.Time     // TCP链接建立时间
+	PacketTime     time.Time     // 当前包的到达时间
+	LastPacketTime time.Time     // 前一个包到达时间
+	CreateAt       time.Time     // 客户端连接时间
+	RpmLimit       int           // 客户发包控制
+	PacketCount    int           // 对收到的包进行计数，避免恶意发包
+	PacketCountRPM int           //
+	Params         *Params       //
+	in             chan []byte   //
+	pending        chan []byte   //
+	inputReadyed   chan struct{} //
+	outputReadyed  chan struct{} //
+	cache          []byte        //
+	die            chan struct{} // 会话关闭信号
+	closed         chan struct{} // 已关闭, 要求退出
+	conn           net.Conn      //
+	RouteFunc      RouterFunc    //
+	OnBeforeClose  *Evt          //
+	OnAfertClose   *Evt          //
 }
 
 // WriteIn 写入
@@ -223,10 +223,11 @@ func (c *Client) send(b []byte) bool {
 
 // Close //
 func (c *Client) Close() {
-	if len(c.OnBeforeClose) > 0 {
-		for _, f := range c.OnBeforeClose {
+	if c.OnBeforeClose.Count() > 0 {
+		c.OnBeforeClose.Iterator(func(k string, f EvtCallBack) bool {
 			f(c)
-		}
+			return true
+		})
 	}
 
 	if c.die == nil {
@@ -235,17 +236,18 @@ func (c *Client) Close() {
 
 	close(c.die)
 	c.Flag |= FlagClientKickedOut
-	if len(c.OnAfertClose) > 0 {
-		for _, f := range c.OnAfertClose {
+	if c.OnAfertClose.Count() > 0 {
+		c.OnAfertClose.Iterator(func(k string, f EvtCallBack) bool {
 			f(c)
-		}
+			return true
+		})
 	}
 }
 
 // NewClient 创建客户端
 func NewClient(conn net.Conn, op *Config) *Client {
 	c := &Client{
-		Params:        make(map[string]interface{}),
+		Params:        NewParams(),
 		in:            make(chan []byte),
 		pending:       make(chan []byte, op.PendingSize),
 		cache:         make([]byte, 65535),
@@ -253,8 +255,8 @@ func NewClient(conn net.Conn, op *Config) *Client {
 		conn:          conn,
 		CreateAt:      time.Now(),
 		RpmLimit:      op.RpmLimit,
-		OnBeforeClose: op.OnBeforeClose,
-		OnAfertClose:  op.OnAfertClose,
+		OnBeforeClose: NewEvt(),
+		OnAfertClose:  NewEvt(),
 		RouteFunc:     op.RouteFunc,
 		closed:        op.Closed,
 	}
