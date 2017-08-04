@@ -31,12 +31,6 @@ var (
 // 路由类型方法
 type RouterFunc func(*Client, []byte) ([]byte, error)
 
-// 客户端关闭前处理
-type BeforeFunc func(*Client)
-
-// 客户端关闭后处理
-type AfertFunc func(*Client)
-
 // Client 客户端处理
 type Client struct {
 	IP             net.IP        // 客户端IP
@@ -318,6 +312,8 @@ func HandleClient(conn net.Conn, readDeadline, writeDeadline int, op *Config) {
 		err = client.WriteIn(payload)
 		if err == ErrorKickedOut {
 			return
+		} else if err == ErrorChanFull {
+			log.Warningf("HandleClient, ErrorChanFull: ID %v IP %s", client.Params, client.IP.String())
 		}
 	}
 }
