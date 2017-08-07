@@ -193,7 +193,7 @@ func (c *Client) Send(b []byte) error {
 
 	select {
 	case c.pending <- b:
-	case <-time.After(30 * time.Second):
+	case <-time.After(1 * time.Second):
 		log.WithFields(log.Fields{"ID": c.ID, "ip": c.IP}).Warning("pending full")
 		return ErrorChanFull
 	}
