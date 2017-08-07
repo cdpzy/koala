@@ -70,8 +70,6 @@ func (c *Client) WriteIn(b []byte) error {
 	case c.in <- b:
 	case <-c.closed:
 		return ErrorKickedOut
-	default:
-		return ErrorChanFull
 	}
 
 	return nil
@@ -312,8 +310,6 @@ func HandleClient(conn net.Conn, readDeadline, writeDeadline int, op *Config) {
 		err = client.WriteIn(payload)
 		if err == ErrorKickedOut {
 			return
-		} else if err == ErrorChanFull {
-			log.Warningf("HandleClient, ErrorChanFull: ID %v IP %s", client.Params, client.IP.String())
 		}
 	}
 }
