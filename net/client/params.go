@@ -29,6 +29,14 @@ func (p *Params) Remove(k string) {
 	p.Unlock()
 }
 
+func (p *Params) In(k string) (ok bool) {
+	p.RLock()
+	_, ok = p.records[k]
+	p.RUnlock()
+
+	return
+}
+
 func (p *Params) Iterator(f func(string, interface{}) bool) {
 	p.RLock()
 	defer p.RUnlock()
@@ -42,7 +50,6 @@ func (p *Params) Iterator(f func(string, interface{}) bool) {
 	}
 }
 
-
 func NewParams() *Params {
-	return &Params{records:make(map[string]interface{})}
+	return &Params{records: make(map[string]interface{})}
 }
