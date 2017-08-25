@@ -44,10 +44,76 @@ type Node struct {
 	connecting  bool              // 服务是否正在连接中
 	Heartbeater int64             // 心跳
 	Idx         int               //
+	mux         sync.RWMutex      //
+}
+
+func (n *Node) GetName() (name string) {
+	n.mux.RLock()
+	name = n.Name
+	n.mux.RUnlock()
+	return
+}
+
+func (n *Node) GetType() (t string) {
+	n.mux.RLock()
+	t = n.Type
+	n.mux.RUnlock()
+	return
+}
+
+func (n *Node) GetAddr() (addr net.IP) {
+	n.mux.RLock()
+	addr = n.Addr
+	n.mux.RUnlock()
+	return
+}
+
+func (n *Node) GetPort() (port int) {
+	n.mux.RLock()
+	port = n.Port
+	n.mux.RUnlock()
+	return
+}
+
+func (n *Node) GePriority() (priority int) {
+	n.mux.RLock()
+	priority = n.Priority
+	n.mux.RUnlock()
+	return
+}
+
+func (n *Node) GeStatus() (status NodeStatus) {
+	n.mux.RLock()
+	status = n.Status
+	n.mux.RUnlock()
+	return
+}
+
+func (n *Node) GetGRPCConn() (c *grpc.ClientConn) {
+	n.mux.RLock()
+	c = n.GRPCConn
+	n.mux.RUnlock()
+	return
+}
+
+func (n *Node) SetGRPCConn(c *grpc.ClientConn) {
+	n.mux.Lock()
+	n.GRPCConn = c
+	n.mux.Unlock()
+	return
+}
+
+func (n *Node) SetStatus(status NodeStatus) {
+	n.mux.Lock()
+	n.Status = status
+	n.mux.Unlock()
+	return
 }
 
 // Set 设置参数
 func (n *Node) Set(k, v string) bool {
+	n.mux.Lock()
+	defer n.mux.Unlock()
 
 	t := reflect.TypeOf(n).Elem()
 	field, ok := t.FieldByName(k)
@@ -305,8 +371,8 @@ func (nm *NodeManager) Watcher() {
 							continue
 						}
 
-						if node.GRPCConn != nil {
-							node.GRPCConn.Close()
+						if node.GetGRPCConn() != nil {
+							node.GetGRPCConn().Close()
 						}
 
 						node.connecting = false
@@ -325,9 +391,9 @@ func (nm *NodeManager) Watcher() {
 
 						node.Set(nodeAttr, string(ev.Kv.Value))
 						if nodeAttr == "Addr" {
-							node.GRPCConn = nil
-							node.Status = NodeStatusClosed
-							nm.UnRegister(node.Name)
+							node.SetGRPCConn(nil)
+							node.SetStatus(NodeStatusClosed)
+							nm.UnRegister(node.GetName())
 						}
 
 						if nodeAttr == "Heartbeater" {
@@ -342,19 +408,19 @@ func (nm *NodeManager) Watcher() {
 							Data: map[string]interface{}{"attribute": nodeAttr, "attributeVal": string(ev.Kv.Value)},
 						})
 
-						if node.GRPCConn == nil &&
+						if node.GetGRPCConn() == nil &&
 							!node.connecting &&
 							nm.Local != nil &&
-							node.Name != nm.Local.Name &&
-							node.Status == NodeStatusOK &&
-							node.Addr != nil &&
-							node.Port > 0 {
+							node.GetName() != nm.Local.GetName() &&
+							node.GeStatus() == NodeStatusOK &&
+							node.GetAddr() != nil &&
+							node.GetPort() > 0 {
 
 							node.connecting = true
 							go func() {
 								ticker := time.NewTicker(5 * time.Second)
 								for {
-									if node.GRPCConn != nil || !services[node.Type] {
+									if node.GetGRPCConn() != nil || !services[node.GetType()] {
 										return
 									}
 
@@ -369,7 +435,7 @@ func (nm *NodeManager) Watcher() {
 									case <-ticker.C:
 									}
 
-									if node.Status != NodeStatusOK {
+									if node.GeStatus() != NodeStatusOK {
 										node.connecting = false
 										return
 									}
@@ -431,7 +497,7 @@ func (nm *NodeManager) serviceInit(node *Node) error {
 	}
 
 	log.Debug("Connect to node:", addr, "[OK]")
-	node.GRPCConn = conn
+	node.SetGRPCConn(conn)
 	nm.events.Trigger(&Event{
 		Name: EventNodeServiceInit,
 		Node: node,

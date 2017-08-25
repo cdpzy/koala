@@ -3,7 +3,6 @@ package http
 import (
 	"errors"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/doublemo/koala/net/http/tree"
@@ -13,11 +12,11 @@ import (
 
 // Route 路由
 type Route struct {
-	Method     string     // 请求方法
-	Path       string     // 路径 eg:/app/list/:page/:sort
-	Action     string     // 方法
-	Controller string     // 控制器 eg: app/controller/DefaultConter
-	Params     url.Values // 参数
+	Method     string       // 请求方法
+	Path       string       // 路径 eg:/app/list/:page/:sort
+	Action     string       // 方法
+	Controller string       // 控制器 eg: app/controller/DefaultConter
+	Params     *RouteParams // 参数
 }
 
 // Router 路由器
@@ -33,7 +32,7 @@ func NewRoute(method, path, action, controller string) *Route {
 		Path:       path,
 		Action:     action,
 		Controller: controller,
-		Params:     make(url.Values),
+		Params:     NewRouteParams(),
 	}
 
 	if !strings.HasPrefix(route.Path, "/") {
@@ -67,9 +66,9 @@ func (router *Router) Find(method, path string) *Route {
 
 	route := leaf.Value.(*Route)
 	if len(expansions) > 0 {
-		route.Params = make(url.Values)
+		route.Params.Reset()
 		for i, v := range expansions {
-			route.Params[leaf.Wildcards[i]] = []string{v}
+			route.Params.Set(leaf.Wildcards[i], v)
 		}
 	}
 

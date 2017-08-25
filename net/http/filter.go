@@ -49,7 +49,7 @@ func RouterFilter(r *Router, c *KoalaController, filterChain []Filter) {
 	}
 
 	c.Params.Values = make(url.Values)
-	c.Params.Route = route.Params
+	c.Params.Route = route.Params.Clone()
 
 	filterChain[0](r, c, filterChain[1:])
 }

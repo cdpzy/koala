@@ -243,12 +243,16 @@ func (c *Client) SetFlag(flag FlagClient) {
 }
 
 func (c *Client) GetFlag() FlagClient {
-	flag, ok := c.flag.Load().(FlagClient)
+	flag := c.flag.Load()
+	if flag == nil {
+		return 0
+	}
+
+	nflag, ok := flag.(FlagClient)
 	if !ok {
 		log.Warningf("Client [%s] flag[%v] assert fail.", c.ID, c.flag.Load())
 	}
-
-	return flag
+	return nflag
 }
 
 // NewClient 创建客户端
