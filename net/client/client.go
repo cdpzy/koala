@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"sync/atomic"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -38,7 +39,6 @@ type Client struct {
 	ID             string        // 客户端ID
 	Encoder        *rc4.Cipher   // 加密器
 	Decoder        *rc4.Cipher   // 解密器
-	Flag           FlagClient    // 会话标记
 	ConnectTime    time.Time     // TCP链接建立时间
 	PacketTime     time.Time     // 当前包的到达时间
 	LastPacketTime time.Time     // 前一个包到达时间
@@ -55,6 +55,7 @@ type Client struct {
 	die            chan struct{} // 会话关闭信号
 	closed         chan struct{} // 已关闭, 要求退出
 	conn           net.Conn      //
+	flag           atomic.Value  // FlagClient 会话标记
 	RouteFunc      RouterFunc    //
 	OnBeforeClose  *Evt          //
 	OnAfertClose   *Evt          //
@@ -62,7 +63,7 @@ type Client struct {
 
 // WriteIn 写入
 func (c *Client) WriteIn(b []byte) error {
-	if c.Flag&FlagClientKickedOut != 0 || c.die == nil {
+	if c.GetFlag()&FlagClientKickedOut != 0 || c.die == nil {
 		return ErrorKickedOut
 	}
 
@@ -105,7 +106,7 @@ func (c *Client) input() {
 
 		case <-heartbeaterTimer:
 			if c.PacketCountRPM > c.RpmLimit {
-				c.Flag |= FlagClientKickedOut
+				c.SetFlag(c.GetFlag() | FlagClientKickedOut)
 				log.WithFields(log.Fields{"ID": c.ID, "rpm": c.PacketCountRPM, "total": c.PacketCount}).Error("RPM")
 			}
 
@@ -113,11 +114,11 @@ func (c *Client) input() {
 			heartbeaterTimer = time.After(time.Minute)
 
 		case <-c.die:
-			c.Flag |= FlagClientKickedOut
+			c.SetFlag(c.GetFlag() | FlagClientKickedOut)
 		}
 
 		// kicked out
-		if c.Flag&FlagClientKickedOut != 0 {
+		if c.GetFlag()&FlagClientKickedOut != 0 {
 			return
 		}
 	}
@@ -138,11 +139,12 @@ func (c *Client) output() {
 			c.send(data)
 
 		case <-c.die:
-			c.Flag |= FlagClientKickedOut
+			c.SetFlag(c.GetFlag() | FlagClientKickedOut)
+
 		}
 
 		// kicked out
-		if c.Flag&FlagClientKickedOut != 0 {
+		if c.GetFlag()&FlagClientKickedOut != 0 {
 			return
 		}
 	}
@@ -154,13 +156,13 @@ func (c *Client) call(b []byte) []byte {
 	defer helper.RecoverStack(c, b)
 
 	// 解密
-	if c.Flag&FlagClientEncrypt != 0 {
+	if c.GetFlag()&FlagClientEncrypt != 0 {
 		c.Decoder.XORKeyStream(b, b)
 	}
 
 	ret, err := c.RouteFunc(c, b)
 	if err == ErrorKickedOut {
-		c.Flag |= FlagClientKickedOut
+		c.SetFlag(c.GetFlag() | FlagClientKickedOut)
 		return nil
 	}
 
@@ -180,13 +182,13 @@ func (c *Client) Send(b []byte) error {
 		return nil
 	}
 
-	log.Debug("Send :", b, c.Flag&FlagClientEncrypt != 0)
-
-	if c.Flag&FlagClientEncrypt != 0 {
+	flag := c.GetFlag()
+	if flag&FlagClientEncrypt != 0 {
 		c.Encoder.XORKeyStream(b, b)
-	} else if c.Flag&FlagClientKeyexcg != 0 {
-		c.Flag &^= FlagClientKeyexcg
-		c.Flag |= FlagClientEncrypt
+	} else if flag&FlagClientKeyexcg != 0 {
+		flag &^= FlagClientKeyexcg
+		flag |= FlagClientEncrypt
+		c.SetFlag(flag)
 	}
 
 	select {
@@ -227,13 +229,26 @@ func (c *Client) Close() {
 	}
 
 	close(c.die)
-	c.Flag |= FlagClientKickedOut
+	c.SetFlag(c.GetFlag() | FlagClientKickedOut)
 	if c.OnAfertClose.Count() > 0 {
 		c.OnAfertClose.Iterator(func(k string, f EvtCallBack) bool {
 			f(c)
 			return true
 		})
 	}
+}
+
+func (c *Client) SetFlag(flag FlagClient) {
+	c.flag.Store(flag)
+}
+
+func (c *Client) GetFlag() FlagClient {
+	flag, ok := c.flag.Load().(FlagClient)
+	if !ok {
+		log.Warningf("Client [%s] flag[%v] assert fail.", c.ID, c.flag.Load())
+	}
+
+	return flag
 }
 
 // NewClient 创建客户端
@@ -280,10 +295,10 @@ func HandleClient(conn net.Conn, readDeadline, writeDeadline int, op *Config) {
 	defer func() {
 		client.Close()
 		Unregister(client.ID)
-		log.WithFields(log.Fields{"ID": client.ID, "IP": client.IP, "ONLINE:": Count()}).Debug("Client shutdown")
+		log.WithFields(log.Fields{"ID": client.ID, "IP": client.IP.String(), "port": client.Port, "ONLINE:": Count()}).Info("Client shutdown")
 	}()
 
-	log.WithFields(log.Fields{"host": client.IP.String(), "port": client.Port, "ONLINE:": Count()}).Debug("new connection from")
+	log.WithFields(log.Fields{"host": client.IP.String(), "port": client.Port, "ONLINE:": Count()}).Info("new connection from")
 
 	for {
 		conn.SetReadDeadline(time.Now().Add(time.Duration(readDeadline) * time.Second))

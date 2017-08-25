@@ -33,7 +33,6 @@ func (p *Params) In(k string) (ok bool) {
 	p.RLock()
 	_, ok = p.records[k]
 	p.RUnlock()
-
 	return
 }
 

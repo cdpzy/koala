@@ -40,7 +40,7 @@ func TestConcurrentAccess(t *testing.T) {
 	go func() {
 		for {
 			for i = 0; i <= 10000; i++ {
-				c.Unregister(i)
+				c.Unregister(fmt.Sprint(i))
 			}
 
 			time.Sleep(time.Second * 1)
@@ -49,8 +49,9 @@ func TestConcurrentAccess(t *testing.T) {
 
 	go func() {
 		for {
-			c.Iterator(func(id int64, c *Client) bool {
-				fmt.Println("I:", id)
+			c.Iterator(func(id string, c *Client) bool {
+				a := c.GetFlag()
+				fmt.Println("I:", id, a)
 				return true
 			})
 
@@ -58,5 +59,53 @@ func TestConcurrentAccess(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(time.Second * 60)
+	time.Sleep(time.Second * 20)
+}
+
+func TestFlag(t *testing.T) {
+	var i int64
+	c := &Client{}
+	c.ID = "111"
+	go func() {
+		for {
+			for i = 0; i < 10000; i++ {
+				c.SetFlag(FlagClientAuthorized)
+			}
+
+			time.Sleep(time.Second * 1)
+		}
+	}()
+
+	go func() {
+		for {
+			for i = 0; i < 10000; i++ {
+				c.SetFlag(FlagClientEncrypt)
+			}
+
+			time.Sleep(time.Second * 1)
+		}
+	}()
+
+	go func() {
+		for {
+			for i = 0; i < 10000; i++ {
+				c.SetFlag(FlagClientKickedOut)
+			}
+
+			time.Sleep(time.Second * 1)
+		}
+	}()
+
+	go func() {
+		for {
+			for i = 0; i < 10000; i++ {
+				a := c.GetFlag()
+				fmt.Println("I:", a)
+			}
+
+			time.Sleep(time.Second * 1)
+		}
+	}()
+
+	time.Sleep(time.Second * 20)
 }
