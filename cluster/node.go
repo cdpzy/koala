@@ -96,6 +96,13 @@ func (n *Node) GetGRPCConn() (c *grpc.ClientConn) {
 	return
 }
 
+func (n *Node) GetHeartbeater() (c int64) {
+	n.mux.RLock()
+	c = n.Heartbeater
+	n.mux.RUnlock()
+	return
+}
+
 func (n *Node) SetGRPCConn(c *grpc.ClientConn) {
 	n.mux.Lock()
 	n.GRPCConn = c
@@ -485,10 +492,10 @@ func (nm *NodeManager) serviceInit(node *Node) error {
 	}
 
 	if node.Addr == nil || node.Port < 1 {
-		return fmt.Errorf("Invalid address:%s %s %s %d", node.Name, node.Type, node.Addr.String(), node.Port)
+		return fmt.Errorf("Invalid address:%s %s %s %d", node.GetName(), node.GetType(), node.GetAddr().String(), node.GetPort())
 	}
 
-	addr := fmt.Sprintf("%s:%d", node.Addr.String(), node.Port)
+	addr := fmt.Sprintf("%s:%d", node.GetAddr().String(), node.GetPort())
 	log.Debug("Waiting connect to node:", addr)
 	conn, err := grpc.Dial(addr, grpc.WithBlock(), grpc.WithInsecure(), grpc.WithTimeout(10*time.Second))
 	if err != nil {
@@ -522,7 +529,7 @@ func (nm *NodeManager) heartbeater() {
 			case <-ticker:
 				nodes := nm.All()
 				for _, n := range nodes {
-					s := time.Now().Sub(time.Unix(n.Heartbeater, 0)).Seconds()
+					s := time.Now().Sub(time.Unix(n.GetHeartbeater(), 0)).Seconds()
 					if s > 20 {
 						nm.UnRegister(n.Name)
 					}
