@@ -16,10 +16,9 @@ type EventCallBack func(Event)
 
 // Event 事件
 type Event struct {
-	Name     string                 // 事件名称
-	CallBack EventCallBack          // 回调
-	Node     *Node                  // 影响节点
-	Data     map[string]interface{} //
+	Name     string        // 事件名称
+	CallBack EventCallBack // 回调
+	Node     *Node         // 影响节点
 }
 
 // EventManager 事件管理器
@@ -90,20 +89,6 @@ func (em *EventManager) Trigger(e *Event) {
 			continue
 		}
 
-		data := make(map[string]interface{})
-		if i.Data != nil {
-			for k, v := range i.Data {
-				data[k] = v
-			}
-		}
-
-		if e.Data != nil {
-			for k, v := range e.Data {
-				data[k] = v
-			}
-		}
-
-		e.Data = data
 		i.CallBack(*e)
 	}
 }
@@ -115,14 +100,14 @@ func NewEventManager() *EventManager {
 
 // AddEvent 注册事件
 func AddEvent(e *Event) {
-	Nodes.events.Register(e)
+	Events.Register(e)
 }
 
 // RemoveEvent 删除事件
 func RemoveEvent(eventName string) {
-	Nodes.events.UnRegister(eventName)
+	Events.UnRegister(eventName)
 }
 
 func RemoveEventFunc(e *Event) {
-	Nodes.events.UnRegisterEvent(e)
+	Events.UnRegisterEvent(e)
 }

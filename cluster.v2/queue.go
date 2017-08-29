@@ -8,19 +8,21 @@ type Queue []*Node
 func (q Queue) Len() int { return len(q) }
 
 func (q Queue) Less(i, j int) bool {
-	return q[i].Priority > q[j].Priority
+	priority1, _ := q[i].GetPriority()
+	priority2, _ := q[j].GetPriority()
+	return priority1 > priority2
 }
 
 func (q Queue) Swap(i, j int) {
 	q[i], q[j] = q[j], q[i]
-	q[i].Idx = i
-	q[j].Idx = j
+	q[i].idx = i
+	q[j].idx = j
 }
 
 func (q *Queue) Push(x interface{}) {
 	n := len(*q)
 	node := x.(*Node)
-	node.Idx = n
+	node.idx = n
 	*q = append(*q, node)
 }
 
@@ -33,5 +35,5 @@ func (q *Queue) Pop() interface{} {
 }
 
 func (q *Queue) Change(node *Node) {
-	heap.Fix(q, node.Idx)
+	heap.Fix(q, node.idx)
 }
