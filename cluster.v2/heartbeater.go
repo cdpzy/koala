@@ -24,13 +24,13 @@ func heartbeater() {
 		for {
 			select {
 			case <-ticker:
-				ticker = time.After(5 * time.Second)
 				Nodes.Iterator(func(k string, v *Node) bool {
 					heartbeaterTime, _ := v.Params.Int64("Heartbeater")
 					s := time.Now().Sub(time.Unix(heartbeaterTime, 0)).Seconds()
-					if s > 20 {
+					if s > 10 {
 						Nodes.UnRegister(v.Name)
 					}
+
 					return true
 				})
 
@@ -39,6 +39,8 @@ func heartbeater() {
 					etcdClient.Do(ctx, client.OpPut(Nodes.Path(Local)+"/Heartbeater", fmt.Sprint(time.Now().Unix())))
 					cancel()
 				}
+
+				ticker = time.After(5 * time.Second)
 
 			case <-heartbeaterCtl:
 				return

@@ -2,7 +2,6 @@ package cluster
 
 import (
 	"container/heap"
-	"context"
 	"math/rand"
 	"net"
 	"strings"
@@ -62,8 +61,8 @@ func New(o *Options) (*NodeManager, error) {
 	}
 
 	watcher()
-	preload()
 	heartbeater()
+	preload()
 	return Nodes, nil
 }
 
@@ -169,57 +168,6 @@ func ShuffleNode(a []*Node) {
 	}
 }
 
-// Preload 预加载已经存在节点
-func preload() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	resp, err := etcdClient.Get(ctx, etcdURL, client.WithPrefix())
-	cancel()
-
-	if err != nil {
-		log.Warnln("Node preload:", err)
-		return
-	}
-
-	for _, kvs := range resp.Kvs {
-		key := string(kvs.Key)
-		log.Debug("Preload node:", key, string(kvs.Value))
-		if !strings.HasPrefix(key, etcdURL) || len(key) < 1 {
-			continue
-		}
-
-		path := strings.TrimPrefix(key, etcdURL+"/")
-		pathSplit := strings.Split(path, "/")
-		if len(pathSplit) != 3 {
-			continue
-		}
-
-		nodeAttr := pathSplit[2]
-		nodeName := pathSplit[1]
-		nodeType := pathSplit[0]
-
-		// 过滤本地节点
-		if nodeName == Local.Name {
-			continue
-		}
-
-		node := Nodes.FindNodeByName(nodeName)
-		if node == nil {
-			node = NewNode(nodeName)
-			node.SetType(nodeType)
-			node.SetStatus(NodeStatusClosed)
-		}
-
-		node.Params.Set(nodeAttr, string(kvs.Value))
-		Nodes.Register(node)
-	}
-
-	// connect
-	Nodes.Iterator(func(k string, v *Node) bool {
-		if err := serviceInit(v); err != nil {
-			port, _ := v.GetPort()
-			log.Warningf("Connect to %s[%s:%d] failed", v.Name, v.GetAddr().String(), port)
-		}
-
-		return true
-	})
+func GetEtcdClient() *client.Client {
+	return etcdClient
 }

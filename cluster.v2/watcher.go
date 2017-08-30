@@ -75,9 +75,18 @@ func watcher() {
 func eventTypePut(nodeName, nodeType, nodeAttr, nodeVale string) {
 	node := Nodes.FindNodeByName(nodeName)
 	if node == nil {
-		node = NewNode(nodeName)
-		node.SetType(nodeType)
-		node.SetStatus(NodeStatusClosed)
+		if nodeType == "Heartbeater" {
+			n, err := reload(nodeName, nodeType)
+			if err != nil {
+				return
+			}
+			node = n
+		} else {
+			node = NewNode(nodeName)
+			node.SetType(nodeType)
+			node.SetStatus(NodeStatusClosed)
+		}
+
 		node = Nodes.Register(node)
 	}
 

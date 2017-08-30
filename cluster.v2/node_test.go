@@ -18,3 +18,7 @@ func TestNodeSet(t *testing.T) {
 	fmt.Println(n.GetAddr())
 
 }
+
+func TestReload(t *testing.T) {
+
+}
