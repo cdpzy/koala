@@ -27,7 +27,7 @@ func heartbeater() {
 				Nodes.Iterator(func(k string, v *Node) bool {
 					heartbeaterTime, _ := v.Params.Int64("Heartbeater")
 					s := time.Now().Sub(time.Unix(heartbeaterTime, 0)).Seconds()
-					if s > 10 {
+					if s > 30 {
 						Nodes.UnRegister(v.Name)
 					}
 
