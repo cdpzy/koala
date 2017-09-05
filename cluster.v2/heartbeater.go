@@ -30,7 +30,6 @@ func heartbeater() {
 					if s > 30 {
 						Nodes.UnRegister(v.Name)
 					}
-
 					return true
 				})
 

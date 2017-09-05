@@ -75,7 +75,7 @@ func watcher() {
 func eventTypePut(nodeName, nodeType, nodeAttr, nodeVale string) {
 	node := Nodes.FindNodeByName(nodeName)
 	if node == nil {
-		if nodeType == "Heartbeater" {
+		if nodeAttr == "Heartbeater" {
 			n, err := reload(nodeName, nodeType)
 			if err != nil {
 				return
@@ -95,11 +95,14 @@ func eventTypePut(nodeName, nodeType, nodeAttr, nodeVale string) {
 		node.RemoveGRPCConn()
 	}
 
-	Events.Trigger(&Event{
-		Name: EventNodeAttributeChanged,
-		Node: node,
-	})
+	if nodeAttr != "Heartbeater" {
+		Events.Trigger(&Event{
+			Name: EventNodeAttributeChanged,
+			Node: node,
+		})
+	}
 
+	log.Infof("TEST-----------------------%s-%s-%s:[%d][%d]", nodeName, nodeType, nodeAttr, Nodes.Count(), node.Params.Count())
 	port, _ := node.GetPort()
 	if node.GetGRPCConn() == nil &&
 		!node.Params.Exist("connecting") &&
@@ -107,9 +110,11 @@ func eventTypePut(nodeName, nodeType, nodeAttr, nodeVale string) {
 		node.Name != Local.Name &&
 		node.GetStatus() == NodeStatusOK &&
 		node.GetAddr() != nil &&
-		port > 0 {
+		port > 0 &&
+		services[node.GetType()] {
 		node.Params.Set("connecting", "true")
 		go func() {
+			log.Infof("TESTxs-----------------------%s-%s-%s:[%d]", nodeName, nodeType, nodeAttr, Nodes.Count())
 			ticker := time.NewTicker(5 * time.Second)
 			for {
 				if node.GetGRPCConn() != nil && !services[node.GetType()] {

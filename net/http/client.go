@@ -23,6 +23,8 @@ func PostJSON(url string, data []byte) ([]byte, error) {
 		return make([]byte, 0), nil
 	}
 
+	defer req.Body.Close()
+
 	req.Header.Set("X-Custom-Header", "val")
 	req.Header.Set("Content-Type", "application/json")
 

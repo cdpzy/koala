@@ -147,6 +147,14 @@ func (nm *NodeManager) One(nodeName string) *Node {
 	return node
 }
 
+func (nm *NodeManager) Count() (count int) {
+	nm.RLock()
+	count = len(nm.nodes)
+	nm.RUnlock()
+
+	return
+}
+
 func NewNodeManager() *NodeManager {
 	return &NodeManager{nodes: make(map[string]*Node)}
 }

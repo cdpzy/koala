@@ -40,6 +40,13 @@ func (p *Params) Remove(k string) {
 	p.Unlock()
 }
 
+func (p *Params) Count() (count int) {
+	p.RLock()
+	count = len(p.records)
+	p.RUnlock()
+	return
+}
+
 func (p *Params) Int64(k string, def ...int64) (v int64, err error) {
 	if len(def) > 0 {
 		v = def[0]

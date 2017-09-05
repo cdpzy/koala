@@ -52,6 +52,10 @@ func (n *Node) SetPriority(v int) {
 
 // GetGRPCConn GPRC节点连接
 func (n *Node) GetGRPCConn() *grpc.ClientConn {
+	if n.Params == nil {
+		return nil
+	}
+
 	conn := n.Params.Get("GRPCConn")
 	if conn == nil {
 		return nil

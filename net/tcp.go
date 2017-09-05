@@ -1,10 +1,9 @@
 package net
 
 import (
+	"fmt"
 	"net"
 	"sync"
-
-	"github.com/doublemo/koala/helper"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -69,8 +68,8 @@ func (s *TCPServer) Serve() error {
 func (s *TCPServer) handle(conn net.Conn) {
 	defer s.wg.Done()
 	defer func() {
-		helper.RecoverStack()
 		conn.Close()
+		fmt.Println("Conn Closed", conn.RemoteAddr())
 	}()
 
 	s.ClientHandler(conn, s.closed)
