@@ -102,7 +102,7 @@ func eventTypePut(nodeName, nodeType, nodeAttr, nodeVale string) {
 		})
 	}
 
-	log.Infof("TEST-----------------------%s-%s-%s:[%d][%d]", nodeName, nodeType, nodeAttr, Nodes.Count(), node.Params.Count())
+	//log.Infof("TEST-----------------------%s-%s-%s:[%d][%d]", nodeName, nodeType, nodeAttr, Nodes.Count(), node.Params.Count())
 	port, _ := node.GetPort()
 	if node.GetGRPCConn() == nil &&
 		!node.Params.Exist("connecting") &&
@@ -114,7 +114,7 @@ func eventTypePut(nodeName, nodeType, nodeAttr, nodeVale string) {
 		services[node.GetType()] {
 		node.Params.Set("connecting", "true")
 		go func() {
-			log.Infof("TESTxs-----------------------%s-%s-%s:[%d]", nodeName, nodeType, nodeAttr, Nodes.Count())
+			//log.Infof("TESTxs-----------------------%s-%s-%s:[%d]", nodeName, nodeType, nodeAttr, Nodes.Count())
 			ticker := time.NewTicker(5 * time.Second)
 			for {
 				if node.GetGRPCConn() != nil && !services[node.GetType()] {
