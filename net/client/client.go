@@ -37,6 +37,7 @@ type Client struct {
 	IP             net.IP        // 客户端IP
 	Port           string        //
 	ID             string        // 客户端ID
+	uniqueID       string        // 唯一ID
 	Encoder        *rc4.Cipher   // 加密器
 	Decoder        *rc4.Cipher   // 解密器
 	ConnectTime    time.Time     // TCP链接建立时间

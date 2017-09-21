@@ -82,6 +82,7 @@ func Count() int {
 
 func Register(c *Client) {
 	c.ID = _default_clients.NewAutoID()
+	c.uniqueID = c.ID
 	_default_clients.Register(c.ID, c)
 }
 
