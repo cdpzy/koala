@@ -39,6 +39,18 @@ func (sm *SessionManager) Unregister(k string) {
 	delete(sm.records, k)
 }
 
+// UnregisterAll unregister all at one batch
+func (sm *SessionManager) UnregisterAll() {
+	sm.Lock()
+	defer sm.Unlock()
+
+	for _, m := range sm.records {
+		m.Session.Close()
+	}
+
+	sm.records = make(map[string]*Session)
+}
+
 func (sm *SessionManager) Get(k string) (s *Session) {
 	sm.RLock()
 	s = sm.records[k]
@@ -76,6 +88,11 @@ func Get(key string) *Session {
 
 func Close(key string) {
 	_defautls_sm.Unregister(key)
+}
+
+// CloseAll close all db that allready registered
+func CloseAll() {
+	_defautls_sm.UnregisterAll()
 }
 
 func GetCopySession(key string) *mgo.Session {
