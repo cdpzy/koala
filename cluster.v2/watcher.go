@@ -114,8 +114,9 @@ func eventTypePut(nodeName, nodeType, nodeAttr, nodeVale string) {
 		services[node.GetType()] {
 		node.Params.Set("connecting", "true")
 		go func() {
-			//log.Infof("TESTxs-----------------------%s-%s-%s:[%d]", nodeName, nodeType, nodeAttr, Nodes.Count())
 			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+
 			for {
 				if node.GetGRPCConn() != nil && !services[node.GetType()] {
 					return
