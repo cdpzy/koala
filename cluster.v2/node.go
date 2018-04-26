@@ -1,62 +1,75 @@
 package cluster
 
 import (
-	"fmt"
 	"net"
+	"strconv"
 
 	"google.golang.org/grpc"
 )
 
-// Node 节点
+const (
+	cNodeType       = "Type"
+	cNodeAddr       = "Addr"
+	cNodePort       = "Port"
+	cNodeStatus     = "Status"
+	cNodePriority   = "Priority"
+	cNodeConnection = "GRPCConn"
+)
+
+// Node each node stands for one grpc server
 type Node struct {
 	Name   string
 	Params *Params
 	idx    int
 }
 
-// GetType 获取节点类型
+// GetType self defined node type, each type stands for one type of service
 func (n *Node) GetType() string {
-	return n.Params.String("Type")
+	return n.Params.String(cNodeType)
 }
 
+// SetType set service type of this node
 func (n *Node) SetType(v string) {
-	n.Params.Set("Type", v)
+	n.Params.Set(cNodeType, v)
 }
 
-// GetType 获取节点地址
+// GetAddr address of this service
 func (n *Node) GetAddr() net.IP {
-	return net.ParseIP(n.Params.String("Addr"))
+	return net.ParseIP(n.Params.String(cNodeAddr))
 }
 
+// SetAddr set address of this service
 func (n *Node) SetAddr(v net.IP) {
-	n.Params.Set("Addr", v.String())
+	n.Params.Set(cNodeAddr, v.String())
 }
 
-// GetType 获取节点端口
+// GetPort port of this service
 func (n *Node) GetPort() (int, error) {
-	return n.Params.Int("Port")
+	return n.Params.Int(cNodePort)
 }
 
+// SetPort port of this service
 func (n *Node) SetPort(v int) {
-	n.Params.Set("Port", fmt.Sprint(v))
+	n.Params.Set(cNodePort, strconv.FormatInt(int64(v), 10))
 }
 
-// GetType 获取节点策略
+// GetPriority priority of this node, used of load balance
 func (n *Node) GetPriority() (int, error) {
-	return n.Params.Int("Priority")
+	return n.Params.Int(cNodePriority)
 }
 
+// SetPriority priority of this node, used of load balance
 func (n *Node) SetPriority(v int) {
-	n.Params.Set("Priority", fmt.Sprint(v))
+	n.Params.Set(cNodePriority, strconv.FormatInt(int64(v), 10))
 }
 
-// GetGRPCConn GPRC节点连接
+// GetGRPCConn connected onece been discovered until node down.
 func (n *Node) GetGRPCConn() *grpc.ClientConn {
 	if n.Params == nil {
 		return nil
 	}
 
-	conn := n.Params.Get("GRPCConn")
+	conn := n.Params.Get(cNodeConnection)
 	if conn == nil {
 		return nil
 	}
@@ -68,17 +81,19 @@ func (n *Node) GetGRPCConn() *grpc.ClientConn {
 	return nil
 }
 
+// SetGRPCConn connected onece been discovered until node down.
 func (n *Node) SetGRPCConn(conn *grpc.ClientConn) {
-	n.Params.Set("GRPCConn", conn)
+	n.Params.Set(cNodeConnection, conn)
 }
 
+// RemoveGRPCConn connected onece been discovered until node down.
 func (n *Node) RemoveGRPCConn() {
-	n.Params.Remove("GRPCConn")
+	n.Params.Remove(cNodeConnection)
 }
 
-// SetStatus 状态
+// GetStatus node service status
 func (n *Node) GetStatus() NodeStatus {
-	v, err := n.Params.Int("Status")
+	v, err := n.Params.Int(cNodeStatus)
 	if err != nil {
 		return NodeStatusClosed
 	}
@@ -86,10 +101,12 @@ func (n *Node) GetStatus() NodeStatus {
 	return NodeStatus(v)
 }
 
+// SetStatus node service status
 func (n *Node) SetStatus(v NodeStatus) {
-	n.Params.Set("Status", fmt.Sprint(v))
+	n.Params.Set(cNodeStatus, strconv.FormatInt(int64(v), 10))
 }
 
+// NewNode create one new node. NOTE: name should be uniq.
 func NewNode(name string) *Node {
 	return &Node{Name: name, Params: NewParams()}
 }
